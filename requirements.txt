@@ -16,3 +16,13 @@ numpy>=1.24
 
 rank-bm25>=0.2.2
 nltk>=3.8.1
+
+pyyaml>=6.0.1
+
+prometheus-client>=0.20
+opentelemetry-api>=1.26.0
+opentelemetry-sdk>=1.26.0
+opentelemetry-instrumentation-fastapi>=0.47b0
+
+langgraph 
+langchain-core

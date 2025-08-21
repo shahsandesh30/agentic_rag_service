@@ -5,8 +5,29 @@ from app.retrieval.vector import VectorSearcher
 from app.retrieval.bm25 import BM25Searcher
 from app.retrieval.hybrid import HybridSearcher
 from app.qa.answer import answer_question
+from app.agent.graph import run_agent
+
+from prometheus_client import make_asgi_app
+from app.obs.middleware import ObservabilityMiddleware
+from app.obs.tracing import setup_tracing, setup_logging
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="RAG-Agentic-AI")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # dev/demo only
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+setup_logging()
+setup_tracing(app)
+app.add_middleware(ObservabilityMiddleware)
+# expose /metrics (Prometheus text format)
+app.mount("/metrics", make_asgi_app())
+
 gen = HFGenerator()
 
 # singletons
@@ -42,6 +63,10 @@ class AskReq(BaseModel):
     k_vector: int = 40
     k_bm25: int = 40
     rrf_k: int = 60
+
+class AgentAskReq(BaseModel):
+    question: str
+    trace: bool = False
 
 @app.get("/healthz")
 def health():
@@ -89,3 +114,8 @@ def ask(req: AskReq):
     )
     # Already a pydantic model → dict
     return payload.dict()
+
+@app.post("/agent/ask")
+def agent_ask(req: AgentAskReq):
+    out = run_agent(req.question)
+    return out if req.trace else out["final"]
