@@ -73,6 +73,13 @@ python -m app.embed.compute_cli --db rag_local.db --model BAAI/bge-small-en-v1.5
 uvicorn app.api:app --reload --port 8000
 ```
 
+### 6) Serve the frontend
+
+```powershell
+python -m http.server 5173 -d frontend
+# open http://localhost:5173
+```
+
 ## API usage
 
 ### POST /search

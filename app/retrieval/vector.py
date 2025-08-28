@@ -1,6 +1,4 @@
-# app/retrieval/vector.py
 from __future__ import annotations
-from typing import List, Optional
 import numpy as np
 from app.embed.model import Embedder
 from app.retrieval.store import connect, load_embeddings, fetch_chunk_texts
@@ -16,7 +14,7 @@ class VectorSearcher:
         self.embedder = Embedder(model_name=model_name)
         self._ids: list[str] = []
         self._mat: np.ndarray = np.zeros((0,1), dtype=np.float32)
-        self.reload()  # initial load
+        self.reload()  
 
     def reload(self):
         conn = connect(self.db_path)
@@ -27,10 +25,10 @@ class VectorSearcher:
         if self._mat.shape[0] == 0:
             return []
 
-        # encode query (already L2-normalized by our Embedder)
+        # encode query (already L2-normalized by Embedder)
         q = self.embedder.encode([query])[0]          # (dim,)
         # cosine since both q and mat rows are normalized → dot product
-        scores = self._mat @ q                        # (N,)
+        scores = self._mat @ q      
         # top-k indices (descending)
         k = min(top_k, scores.shape[0])
         idx = np.argpartition(scores, -k)[-k:]

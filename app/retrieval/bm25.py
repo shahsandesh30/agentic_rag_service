@@ -46,7 +46,7 @@ class BM25Searcher:
         if not self._bm25:
             return []
         qtok = _tok(query)
-        scores = self._bm25.get_scores(qtok)  # np.array-like
+        scores = self._bm25.get_scores(qtok)  
         k = min(top_k, len(scores))
         idx = np.argpartition(scores, -k)[-k:]
         idx = idx[np.argsort(scores[idx])[::-1]]

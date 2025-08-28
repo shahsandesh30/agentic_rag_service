@@ -1,0 +1,74 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+
+# Caches
+.cache/
+.mypy_cache/
+.pytest_cache/
+.pytype/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+.jupyter/
+
+# --- Environment files ---
+.env
+.env.*
+!.env.example
+
+# --- Databases ---
+*.sqlite
+*.sqlite3
+*.db
+*.db-*
+rag_local.db
+rag_local.db-shm
+rag_local.db-wal
+
+# --- Frontend / Node ---
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.code-workspace
+
+# --- OS-specific ---
+.DS_Store
+Thumbs.db
+
+# --- Tooling / Misc ---
+.cursor/
+.envrc
+direnv.toml
+*~
+

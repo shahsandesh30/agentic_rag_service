@@ -3,195 +3,260 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>RAG Agent Demo (/agent/ask)</title>
+  <title>RAG/Agent Demo — API Console</title>
   <style>
-    :root{--bg:#0b1220;--panel:#121a2b;--muted:#9fb0c7;--text:#e7eefc;--accent:#6ea8fe;--accent2:#7df0c9;--danger:#ff6b6b}
+    :root{--bg:#0b1220;--panel:#10192d;--muted:#a0b3ce;--text:#e6eefb;--accent:#6ea8fe;--accent2:#7df0c9;--danger:#ff6b6b}
     *{box-sizing:border-box}
     body{margin:0;background:linear-gradient(180deg,#0b1220,#0b1220 40%,#0c1526);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    header{padding:18px 20px;border-bottom:1px solid #1b2740;background:rgba(10,16,28,.6);backdrop-filter:blur(6px);position:sticky;top:0;z-index:5}
-    header h1{margin:0;font-size:18px;letter-spacing:.4px}
-    main{max-width:980px;margin:24px auto 80px;padding:0 20px}
+    header{padding:16px 20px;border-bottom:1px solid #1b2740;background:rgba(10,16,28,.6);backdrop-filter:blur(6px);position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center}
+    header h1{margin:0;font-size:18px;letter-spacing:.3px}
+    header input{flex:1;max-width:520px;background:#0f1627;color:var(--text);border:1px solid #21304d;border-radius:10px;padding:8px 10px;font-size:13px}
+    header .btn{padding:8px 12px}
+    main{max-width:1100px;margin:22px auto 80px;padding:0 20px;display:grid;grid-template-columns:260px 1fr;gap:16px}
+    .sidebar{background:var(--panel);border:1px solid #1b2740;border-radius:16px;padding:10px}
+    .endpoint{display:flex;align-items:center;gap:8px;padding:10px;cursor:pointer;border-radius:10px;color:#cfe0ff;border:1px solid transparent}
+    .endpoint small{opacity:.8}
+    .endpoint.active{background:#132244;border-color:#233559}
+    .endpoint:hover{background:#0f1b33}
+    .content{display:grid;gap:16px}
     .card{background:var(--panel);border:1px solid #1b2740;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+    .section{padding:16px}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .grid{display:grid;gap:12px}
     label{font-size:12px;color:var(--muted)}
-    input[type=text], textarea, select{width:100%;background:#0f1627;color:var(--text);border:1px solid #21304d;border-radius:10px;padding:10px 12px;font-size:14px}
-    textarea{min-height:120px;resize:vertical}
-    .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    input[type=text], input[type=number], textarea, select{width:100%;background:#0f1627;color:var(--text);border:1px solid #21304d;border-radius:10px;padding:10px 12px;font-size:14px}
+    input[type=checkbox]{transform:scale(1.1)}
+    textarea{min-height:110px;resize:vertical}
     .btn{cursor:pointer;background:var(--accent);border:none;color:#05122a;padding:10px 14px;border-radius:10px;font-weight:600}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
     .btn.secondary{background:#21304d;color:#e7eefc}
     .btn.danger{background:var(--danger);color:#fff}
-    .grid{display:grid;gap:16px}
-    .section{padding:16px}
-    .answer{font-size:15px;line-height:1.6}
+    .kv{display:grid;grid-template-columns:180px 1fr;gap:8px}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    pre{background:#0f1627;border:1px solid #21304d;border-radius:10px;padding:12px;overflow:auto;max-height:420px}
     .muted{color:var(--muted)}
-    .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1a2744;color:#9fb0c7;font-size:12px}
-    .meter{height:8px;border-radius:999px;background:#1a2744;overflow:hidden}
-    .meter>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0}
-    details{background:#0f172a;border:1px solid #1e2a45;border-radius:12px;padding:8px 12px}
-    summary{cursor:pointer;color:#c6d4ee}
-    code, pre{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px}
-    pre{background:#0f1627;border:1px solid #21304d;border-radius:10px;padding:12px;overflow:auto}
     .pill{display:inline-flex;gap:6px;align-items:center;padding:2px 8px;border-radius:999px;background:#15213a;border:1px solid #233559;font-size:12px;color:#a9b8d9}
-    .row.wrap{flex-wrap:wrap}
-    .kv{display:grid;grid-template-columns:150px 1fr;gap:6px;font-size:13px}
-    a{color:#8bc5ff}
-    .footer{margin-top:18px;color:#7f93b7;font-size:12px}
   </style>
 </head>
 <body>
   <header>
-    <h1>RAG Agent Demo <span class="badge">/agent/ask</span></h1>
+    <h1>API Console</h1>
+    <input id="apiBase" type="text" placeholder="http://localhost:8000" />
+    <button class="btn secondary" onclick="saveBase()">Save</button>
+    <span class="pill">Use with: <code>uvicorn app.api:app --reload --port 8000</code></span>
   </header>
   <main>
-    <section class="card section grid">
-      <div class="row wrap">
-        <label>API Base URL</label>
-        <input id="apiBase" type="text" value="http://localhost:8000" />
-        <button class="btn secondary" onclick="saveBase()">Save</button>
-      </div>
-      <div class="grid">
-        <label>Your question</label>
-        <textarea id="question" placeholder="Ask something grounded in your corpus... e.g., What does the policy say about refunds?"></textarea>
-        <div class="row">
-          <label><input type="checkbox" id="trace" /> Return debug trace</label>
-          <button class="btn" id="askBtn" onclick="askAgent()">Ask Agent</button>
-          <button class="btn secondary" onclick="clearOutput()">Clear</button>
+    <aside class="sidebar" id="sidebar"></aside>
+    <section class="content">
+      <div class="card section">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0" id="title">/agent/ask</h3>
+          <div class="row">
+            <button class="btn" id="sendBtn" onclick="send()">Send</button>
+            <button class="btn secondary" onclick="loadDefaults()">Reset</button>
+          </div>
         </div>
+        <div id="form" class="grid"></div>
       </div>
-    </section>
 
-    <section class="card section grid" id="resultCard" style="display:none">
-      <div class="row" style="justify-content:space-between">
-        <h3 style="margin:0">Answer</h3>
-        <div class="row">
-          <span class="pill">Confidence: <b id="confVal">0.00</b></span>
-          <span class="pill" id="safetyBadge">Safety: ok</span>
-          <button class="btn secondary" onclick="copyAnswer()">Copy Answer</button>
-          <button class="btn secondary" onclick="copyJSON()">Copy JSON</button>
+      <div class="card section">
+        <h3 style="margin:0 0 8px">Request</h3>
+        <pre id="reqPre" class="muted"></pre>
+      </div>
+
+      <div class="card section">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Response</h3>
+          <div class="row">
+            <button class="btn secondary" onclick="copy('#resPre')">Copy JSON</button>
+            <button class="btn secondary" onclick="copy('#curlPre')">Copy cURL</button>
+          </div>
         </div>
-      </div>
-      <div class="meter"><i id="confBar"></i></div>
-      <div id="answer" class="answer"></div>
-
-      <div class="grid">
-        <h4 style="margin:12px 0 0">Citations</h4>
-        <div id="cites"></div>
+        <pre id="resPre"></pre>
       </div>
 
-      <details id="traceBlock" style="display:none">
-        <summary>Execution trace</summary>
-        <pre id="tracePre"></pre>
-      </details>
-      <div class="footer muted">Tip: run <code>uvicorn app.api:app --reload --port 8000</code> then serve this page with <code>python -m http.server 5173 -d frontend</code>.</div>
+      <div class="card section">
+        <h3 style="margin:0 0 8px">cURL</h3>
+        <pre id="curlPre" class="muted"></pre>
+        <div class="muted">Tip: enable CORS in <code>app/api.py</code> for browser use.</div>
+      </div>
     </section>
   </main>
 
-  <script>
-    const qEl = document.getElementById('question');
-    const baseEl = document.getElementById('apiBase');
-    const askBtn = document.getElementById('askBtn');
-    const traceEl = document.getElementById('trace');
+<script>
+// ===== Config =====
+const endpoints = [
+  {
+    key: 'agentAsk', title: '/agent/ask', path: '/agent/ask',
+    fields: [
+      {k:'question', t:'text', label:'question', placeholder:'Ask something grounded in your corpus...'},
+      {k:'trace', t:'checkbox', label:'trace', def:false},
+    ],
+  },
+  {
+    key: 'ask', title: '/ask', path: '/ask',
+    fields: [
+      {k:'question', t:'text', label:'question', placeholder:'e.g., What does the policy say about refunds?'},
+      {k:'top_k_ctx', t:'number', label:'top_k_ctx', def:8},
+      {k:'rerank', t:'checkbox', label:'rerank', def:true},
+      {k:'rerank_k', t:'number', label:'rerank_k', def:20},
+      {k:'k_vector', t:'number', label:'k_vector', def:40},
+      {k:'k_bm25', t:'number', label:'k_bm25', def:40},
+      {k:'rrf_k', t:'number', label:'rrf_k', def:60},
+      {k:'mmr', t:'checkbox', label:'mmr', def:true},
+      {k:'mmr_alpha', t:'number', label:'mmr_alpha', def:0.7, step:'0.05'},
+      {k:'per_doc_cap', t:'number', label:'per_doc_cap', def:2},
+    ],
+  },
+  {
+    key: 'search', title: '/search', path: '/search',
+    fields: [
+      {k:'query', t:'text', label:'query', placeholder:'refund policy'},
+      {k:'top_k', t:'number', label:'top_k', def:5},
+      {k:'mode', t:'select', label:'mode', def:'hybrid', opts:['hybrid','vector','bm25']},
+      {k:'k_vector', t:'number', label:'k_vector', def:40},
+      {k:'k_bm25', t:'number', label:'k_bm25', def:40},
+      {k:'rrf_k', t:'number', label:'rrf_k', def:60},
+      {k:'rerank', t:'checkbox', label:'rerank', def:false},
+      {k:'rerank_k', t:'number', label:'rerank_k', def:20},
+      {k:'mmr', t:'checkbox', label:'mmr', def:true},
+      {k:'mmr_alpha', t:'number', label:'mmr_alpha', def:0.7, step:'0.05'},
+      {k:'per_doc_cap', t:'number', label:'per_doc_cap', def:2},
+    ],
+  },
+  {
+    key: 'chat', title: '/chat', path: '/chat',
+    fields: [
+      {k:'prompt', t:'text', label:'prompt', placeholder:'Say hello'},
+    ],
+  },
+  {
+    key: 'feedback', title: '/feedback', path: '/feedback',
+    fields: [
+      {k:'question', t:'text', label:'question'},
+      {k:'answer', t:'text', label:'answer'},
+      {k:'confidence', t:'number', label:'confidence', def:0.0, step:'0.01'},
+      {k:'rating', t:'select', label:'rating', def:1, opts:[1,0,-1]},
+      {k:'notes', t:'text', label:'notes'},
+      {k:'citations', t:'textarea', label:'citations (JSON array)', placeholder:'[{"chunk_id":"..."}]'},
+    ],
+  },
+];
 
-    const resultCard = document.getElementById('resultCard');
-    const answerEl = document.getElementById('answer');
-    const citesEl = document.getElementById('cites');
-    const confBar = document.getElementById('confBar');
-    const confVal = document.getElementById('confVal');
-    const safetyBadge = document.getElementById('safetyBadge');
-    const traceBlock = document.getElementById('traceBlock');
-    const tracePre = document.getElementById('tracePre');
+// ===== UI =====
+const sidebar = document.getElementById('sidebar');
+const titleEl = document.getElementById('title');
+const formEl = document.getElementById('form');
+const reqPre = document.getElementById('reqPre');
+const resPre = document.getElementById('resPre');
+const curlPre = document.getElementById('curlPre');
+const sendBtn = document.getElementById('sendBtn');
+const baseEl = document.getElementById('apiBase');
 
-    function loadBase(){ const v = localStorage.getItem('apiBase'); if(v) baseEl.value = v; }
-    function saveBase(){ localStorage.setItem('apiBase', baseEl.value.trim()); toast('Saved'); }
+let current = endpoints[0];
 
-    function toast(msg){
-      console.log(msg);
+function loadBase(){ const v = localStorage.getItem('apiBase'); if(v) baseEl.value = v; }
+function saveBase(){ localStorage.setItem('apiBase', baseEl.value.trim()); }
+
+function makeField(f){
+  const wrap = document.createElement('div');
+  wrap.className = (f.t==='text' || f.t==='textarea') ? 'grid' : 'two';
+  const label = document.createElement('label'); label.textContent = f.label;
+  let input;
+  if(f.t==='select'){
+    input = document.createElement('select');
+    f.opts.forEach(o=>{ const opt=document.createElement('option'); opt.value=o; opt.textContent=o; input.appendChild(opt); });
+    input.value = f.def;
+  } else if(f.t==='checkbox'){
+    input = document.createElement('input'); input.type='checkbox'; input.checked = !!f.def;
+  } else if(f.t==='number'){
+    input = document.createElement('input'); input.type='number'; input.value = f.def ?? 0; if(f.step) input.step=f.step;
+  } else if(f.t==='textarea'){
+    input = document.createElement('textarea'); input.placeholder = f.placeholder||''; input.value = f.def ?? '';
+  } else { // text
+    input = document.createElement('textarea'); input.placeholder = f.placeholder||''; input.value = f.def ?? ''; input.style.minHeight='72px';
+  }
+  input.dataset.key = f.k; input.dataset.type = f.t;
+  wrap.appendChild(label); wrap.appendChild(input);
+  return wrap;
+}
+
+function renderSidebar(){
+  sidebar.innerHTML='';
+  endpoints.forEach(ep=>{
+    const div = document.createElement('div');
+    div.className = 'endpoint'+(ep===current?' active':'');
+    div.innerHTML = `<strong>${ep.title}</strong> <small>${ep.path}</small>`;
+    div.onclick = ()=>{ current=ep; buildForm(); };
+    sidebar.appendChild(div);
+  });
+}
+
+function buildForm(){
+  titleEl.textContent = current.title;
+  formEl.innerHTML='';
+  current.fields.forEach(f=> formEl.appendChild(makeField(f)) );
+  loadDefaults();
+}
+
+function loadDefaults(){
+  // nothing extra—fields already carry defaults
+  updatePreview();
+}
+
+function gather(){
+  const body = {};
+  formEl.querySelectorAll('[data-key]').forEach(el=>{
+    const k = el.dataset.key; const t = el.dataset.type;
+    if(t==='checkbox'){ body[k] = el.checked; }
+    else if(t==='number'){ body[k] = Number(el.value); }
+    else if(k==='citations'){
+      try{ body[k] = JSON.parse(el.value||'[]'); }catch{ body[k] = []; }
     }
-
-    function setBusy(b){ askBtn.disabled = b; askBtn.textContent = b ? 'Thinking…' : 'Ask Agent'; }
-    function clearOutput(){ resultCard.style.display = 'none'; answerEl.textContent = ''; citesEl.innerHTML = ''; tracePre.textContent = ''; }
-
-    function renderFinal(final){
-      resultCard.style.display = 'block';
-      const ans = final.answer || '';
-      answerEl.textContent = ans;
-      const conf = Math.max(0, Math.min(1, Number(final.confidence||0)));
-      confVal.textContent = conf.toFixed(2);
-      confBar.style.width = (conf*100)+'%';
-      const s = final.safety || {blocked:false};
-      safetyBadge.textContent = s.blocked ? `Safety: BLOCKED (${s.reason||'policy'})` : 'Safety: ok';
-      safetyBadge.style.background = s.blocked ? 'var(--danger)' : '#15213a';
-      // Citations
-      const cites = Array.isArray(final.citations) ? final.citations : [];
-      if(!cites.length){citesEl.innerHTML = '<span class="muted">(none)</span>';}
-      else{
-        citesEl.innerHTML = '';
-        cites.forEach(c => {
-          const div = document.createElement('div');
-          div.className = 'kv';
-          div.innerHTML = `<div class="muted">chunk_id</div><div><code>${c.chunk_id||''}</code></div>
-                           <div class="muted">section</div><div>${escapeHtml(c.section||'')}</div>
-                           <div class="muted">path</div><div>${escapeHtml(c.path||'')}</div>`;
-          citesEl.appendChild(div);
-        });
-      }
+    else {
+      body[k] = el.value.trim();
     }
+  });
+  return body;
+}
 
-    function escapeHtml(s){ return (s||'').replace(/[&<>\"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function updatePreview(){
+  const body = gather();
+  reqPre.textContent = JSON.stringify(body, null, 2);
+  const base = (baseEl.value||'').replace(/\/$/,'');
+  curlPre.textContent = `curl -X POST 
+  '${base}${current.path}' 
+  -H 'Content-Type: application/json' 
+  -d '${JSON.stringify(body).replace(/'/g,"'\''")}'`;
+}
 
-    async function askAgent(){
-      clearOutput();
-      setBusy(true);
-      try{
-        const base = baseEl.value.replace(/\/$/,'');
-        const body = { question: qEl.value.trim(), trace: traceEl.checked };
-        if(!body.question){ setBusy(false); return; }
-        const res = await fetch(`${base}/agent/ask`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-        if(!res.ok){ throw new Error(`HTTP ${res.status}`); }
-        const data = await res.json();
-        if(traceEl.checked){
-          // data has { final, trace }
-          renderFinal(data.final || {});
-          traceBlock.style.display = 'block';
-          tracePre.textContent = JSON.stringify(data.trace||[], null, 2);
-        } else {
-          // data is just the final payload
-          renderFinal(data);
-          traceBlock.style.display = 'none';
-        }
-      }catch(err){
-        resultCard.style.display = 'block';
-        answerEl.textContent = 'Error: '+err.message;
-        citesEl.innerHTML = '';
-      } finally{ setBusy(false); }
-    }
+formEl.addEventListener('input', updatePreview);
+baseEl.addEventListener('input', updatePreview);
 
-    function copyAnswer(){ navigator.clipboard.writeText(answerEl.textContent||''); }
-    function copyJSON(){
-      const base = baseEl.value.replace(/\/$/,'');
-      const body = { question: qEl.value.trim(), trace: traceEl.checked };
-      // not re-calling backend; just build a JSON from current DOM when available
-      const payload = {
-        answer: answerEl.textContent||'',
-        confidence: Number(confVal.textContent)||0,
-        citations: [],
-        safety: { blocked: safetyBadge.textContent.includes('BLOCKED') }
-      };
-      // harvest displayed citations
-      const rows = citesEl.querySelectorAll('.kv');
-      rows.forEach(r=>{
-        const codes = r.querySelectorAll('code');
-        const cid = codes[0]?.textContent||'';
-        const section = r.children[3]?.textContent||'';
-        const path = r.children[5]?.textContent||'';
-        payload.citations.push({chunk_id: cid, section, path});
-      });
-      navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    }
+async function send(){
+  sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+  resPre.textContent = '';
+  updatePreview();
+  try{
+    const base = (baseEl.value||'').replace(/\/$/,'');
+    const body = gather();
+    const res = await fetch(base + current.path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const txt = await res.text();
+    let out; try{ out = JSON.parse(txt); }catch{ out = { raw: txt }; }
+    resPre.textContent = JSON.stringify(out, null, 2);
+  }catch(e){
+    resPre.textContent = JSON.stringify({error: e.message}, null, 2);
+  } finally{
+    sendBtn.disabled = false; sendBtn.textContent = 'Send';
+  }
+}
 
-    // init
-    loadBase();
-  </script>
+function copy(sel){ const el = document.querySelector(sel); navigator.clipboard.writeText(el.textContent||''); }
+
+// init
+loadBase();
+renderSidebar();
+buildForm();
+updatePreview();
+</script>
 </body>
 </html>

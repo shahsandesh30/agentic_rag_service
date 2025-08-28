@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Optional
 from app.llm.hf import HFGenerator
 
-def make_rewrites(question: str, max_rewrites: int = 3) -> List[str]:
-    gen = HFGenerator()
+def make_rewrites(question: str, max_rewrites: int = 3, generator: Optional[HFGenerator] = None) -> List[str]:
+    gen = generator or HFGenerator()
     prompt = (
         "Rewrite the question into up to 3 retrieval-friendly queries, "
         "covering synonyms, likely terms, and missing specifics. "

@@ -137,3 +137,53 @@ def answer_question(
         t0 = time.perf_counter()
         # HFGenerator.generate expects (prompt, contexts, system)
         raw = generator.generate
+        try:
+            text = raw(
+                prompt=user,
+                contexts=context_blocks,
+                system=system,
+            )
+        except Exception:
+            text = ""
+        finally:
+            dt = time.perf_counter() - t0
+            try:
+                GENERATION_LATENCY.observe(dt)
+            except Exception:
+                pass
+
+    # 6) Safety postflight and finalize answer
+    try:
+        final_text, blocked2, info2 = postflight(text, policy=DEFAULT_POLICY)
+    except Exception:
+        final_text, blocked2, info2 = text, False, {}
+
+    if blocked2:
+        return AnswerPayload(
+            answer="I can’t help with that.",
+            citations=[],
+            confidence=0.2,
+            safety={
+                "blocked": True,
+                "reason": info2.get("reason"),
+                "flags": info2.get("flags"),
+                "risk_score": info2.get("risk_score"),
+            },
+        )
+
+    citations = _default_citations(hits, limit=min(5, top_k_ctx))
+    confidence = _confidence_from_hits(hits)
+
+    # 7) Token output metric (best-effort)
+    try:
+        out_tokens = len(generator.tokenizer(final_text).input_ids)
+        TOKENS_OUTPUT.inc(out_tokens)
+    except Exception:
+        pass
+
+    return AnswerPayload(
+        answer=final_text.strip() if isinstance(final_text, str) else str(final_text),
+        citations=citations,
+        confidence=confidence,
+        safety={"blocked": False},
+    )

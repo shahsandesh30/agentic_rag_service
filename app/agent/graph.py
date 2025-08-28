@@ -11,17 +11,18 @@ from app.agent.compliance import check
 from app.retrieval.vector import VectorSearcher
 from app.retrieval.bm25 import BM25Searcher
 from app.retrieval.hybrid import HybridSearcher
-from app.llm.hf import HFGenerator
+from app.llm.hf import HFGenerator, get_shared_generator
 
 # singletons
 _V = VectorSearcher(db_path="rag_local.db", model_name="BAAI/bge-small-en-v1.5")
 _B = BM25Searcher(db_path="rag_local.db")
 _H = HybridSearcher(_V, _B, db_path="rag_local.db")
-_GEN = HFGenerator()
+_GEN = get_shared_generator()
 
 def node_router(state: AgentState) -> AgentState:
-    intent = route(state["question"])
+    intent = route(state["question"], allow_llm_fallback=False, generator=_GEN)
     state["intent"] = intent
+    print("intenttttttttttt", intent)
     state.setdefault("trace", []).append({"node": "router", "intent": intent})
     return state
 
@@ -30,7 +31,7 @@ def node_research(state: AgentState) -> AgentState:
         state["rewrites"] = []
         state.setdefault("trace", []).append({"node": "researcher", "skipped": True})
         return state
-    rw = make_rewrites(state["question"], max_rewrites=3)
+    rw = make_rewrites(state["question"], max_rewrites=3, generator=_GEN)
     state["rewrites"] = rw
     state.setdefault("trace", []).append({"node": "researcher", "rewrites": rw})
     return state

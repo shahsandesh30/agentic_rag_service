@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Literal
+from typing import List
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
@@ -23,7 +23,6 @@ class Embedder:
             normalize_embeddings=self.normalize,
         )
 
-        # ensure contiguous float32 for storage
         arr = np.asarray(vecs, dtype=np.float32)
         return arr
     

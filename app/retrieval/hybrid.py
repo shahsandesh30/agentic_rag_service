@@ -1,4 +1,3 @@
-# app/retrieval/hybrid.py
 from __future__ import annotations
 from typing import List, Dict
 import time
@@ -139,3 +138,4 @@ class HybridSearcher:
 
         # no rerank → return fused top_k
         return fused[:top_k]
+    

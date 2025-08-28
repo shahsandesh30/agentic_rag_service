@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from app.llm.hf import HFGenerator
+from app.llm.hf import HFGenerator, get_shared_generator
 from app.retrieval.vector import VectorSearcher
 from app.retrieval.bm25 import BM25Searcher
 from app.retrieval.hybrid import HybridSearcher
@@ -28,13 +28,12 @@ app.add_middleware(ObservabilityMiddleware)
 # expose /metrics (Prometheus text format)
 app.mount("/metrics", make_asgi_app())
 
-gen = HFGenerator()
+# Single shared generator instance
 
-# singletons
 _vector = VectorSearcher(db_path="rag_local.db", model_name="BAAI/bge-small-en-v1.5")
 _bm25   = BM25Searcher(db_path="rag_local.db")
 _hybrid = HybridSearcher(_vector, _bm25, db_path="rag_local.db")
-_gen    = HFGenerator()  # from Step 1
+_gen    = get_shared_generator()
 
 class ChatReq(BaseModel):
     prompt: str
@@ -44,16 +43,16 @@ class ChatResp(BaseModel):
 
 class SearchReq(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: int = 3
     mode: str = "hybrid"       # "vector" | "bm25" | "hybrid"
-    k_vector: int = 40         # only used for hybrid
-    k_bm25: int = 40           # only used for hybrid
+    k_vector: int = 20         # only used for hybrid
+    k_bm25: int = 20           # only used for hybrid
     rrf_k: int = 60            # only used for hybrid
     rerank: bool = False
-    rerank_k: int = 20
+    rerank_k: int = 10
     reranker_model: str = "BAAI/bge-reranker-base"
-    reranker_batch: int = 16
-    max_passage_chars: int = 1200
+    reranker_batch: int = 4
+    max_passage_chars: int = 800
 
 class AskReq(BaseModel):
     question: str
@@ -74,7 +73,7 @@ def health():
 
 @app.post("/chat", response_model=ChatResp)
 def chat(req: ChatReq):
-    text = gen.generate(req.prompt, system="You are a fast assistant.")
+    text = _gen.generate(req.prompt, system="You are a fast assistant.")
     return ChatResp(output=text)
 
 @app.post("/search")

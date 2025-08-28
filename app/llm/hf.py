@@ -43,3 +43,12 @@ class HFGenerator:
 
         completion = self.tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
         return completion.strip()
+
+# Shared singleton accessor to avoid multiple heavy initializations
+_SHARED_GENERATOR: HFGenerator | None = None
+
+def get_shared_generator() -> HFGenerator:
+    global _SHARED_GENERATOR
+    if _SHARED_GENERATOR is None:
+        _SHARED_GENERATOR = HFGenerator()
+    return _SHARED_GENERATOR
