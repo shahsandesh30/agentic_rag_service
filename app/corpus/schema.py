@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS chunks(
   FOREIGN KEY(doc_id) REFERENCES documents(id)
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_sha ON documents(sha256);
 """
 
 def connect(db_path: str = "rag_local.db") -> sqlite3.Connection:

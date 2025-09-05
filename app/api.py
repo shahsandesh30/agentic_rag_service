@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from app.llm.hf import HFGenerator, get_shared_generator
+from dotenv import load_dotenv
+import os
+
+# from app.llm.hf import HFGenerator, get_shared_generator
+from app.llm.groq_gen import GroqGenerator
 from app.retrieval.vector import VectorSearcher
 from app.retrieval.bm25 import BM25Searcher
 from app.retrieval.hybrid import HybridSearcher
@@ -28,12 +32,15 @@ app.add_middleware(ObservabilityMiddleware)
 # expose /metrics (Prometheus text format)
 app.mount("/metrics", make_asgi_app())
 
-# Single shared generator instance
+load_dotenv()
 
+# Single shared generator instance
 _vector = VectorSearcher(db_path="rag_local.db", model_name="BAAI/bge-small-en-v1.5")
 _bm25   = BM25Searcher(db_path="rag_local.db")
 _hybrid = HybridSearcher(_vector, _bm25, db_path="rag_local.db")
-_gen    = get_shared_generator()
+# _gen    = get_shared_generator()
+llm_api_key = os.getenv("GROQ_API_KEY")
+_gen = GroqGenerator(model="llama-3.1-8b-instant", api_key=llm_api_key)
 
 class ChatReq(BaseModel):
     prompt: str
@@ -59,6 +66,7 @@ class AskReq(BaseModel):
     top_k_ctx: int = 8
     rerank: bool = True
     rerank_k: int = 20
+    mode: str = "hybrid"      # "vector" | "bm25" | "hybrid"
     k_vector: int = 40
     k_bm25: int = 40
     rrf_k: int = 60
@@ -100,9 +108,17 @@ def search(req: SearchReq):
 
 @app.post("/ask")
 def ask(req: AskReq):
+    print("Received question:", req.question)
+    mode = (req.mode or "hybrid").lower()
+    if mode == "vector":
+        _searcher = _vector
+    elif mode == "bm25":
+        _searcher = _bm25
+    else:
+        _searcher = _hybrid
     payload = answer_question(
         req.question,
-        _hybrid,
+        _searcher,
         _gen,
         top_k_ctx=req.top_k_ctx,
         k_vector=req.k_vector,

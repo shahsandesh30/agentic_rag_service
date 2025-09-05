@@ -26,3 +26,5 @@ opentelemetry-instrumentation-fastapi>=0.47b0
 
 langgraph 
 langchain-core
+
+groq

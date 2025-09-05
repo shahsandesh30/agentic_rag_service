@@ -23,9 +23,11 @@ def compute_embeddings(
 
     while True:
         todo = fetch_chunks_to_embed(conn, model=model_name, limit=limit_per_pass)
+        print("todo______",todo)
         if not todo:
             break
-
+        
+        print("todo______",todo)
         # batch over 'todo'
         for i in range(0, len(todo), batch_size):
             batch_ids, batch_texts = zip(*todo[i:i+batch_size])

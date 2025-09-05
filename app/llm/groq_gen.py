@@ -1,0 +1,39 @@
+# app/llm/groq_gen.py
+from __future__ import annotations
+import os
+from typing import List
+from groq import Groq
+
+class GroqGenerator:
+    """
+    Groq API wrapper for text generation.
+    Drop-in replacement for HFGenerator.
+    """
+
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        self.model = model or os.getenv("GEN_MODEL", "llama-3.1-8b-instant")
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
+        if not self.api_key:
+            raise RuntimeError("Missing GROQ_API_KEY in env or passed explicitly")
+        self.client = Groq(api_key=self.api_key)
+
+    def generate(
+        self,
+        prompt: str,
+        contexts: List[str] = [],
+        system: str = "You are a grounded QA assistant."
+    ) -> str:
+        # Build chat messages
+        msgs = [{"role": "system", "content": system}]
+        if contexts:
+            ctx = "\n\n".join(contexts)
+            msgs.append({"role": "user", "content": f"Context:\n{ctx}"})
+        msgs.append({"role": "user", "content": prompt})
+
+        resp = self.client.chat.completions.create(
+            model=self.model,
+            messages=msgs,
+            temperature=0.2,
+            max_tokens=512,
+        )
+        return resp.choices[0].message.content.strip()

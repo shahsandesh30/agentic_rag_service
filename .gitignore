@@ -37,6 +37,13 @@ logs/
 .ipynb_checkpoints/
 .jupyter/
 
+# Python cache
+# Python cache
+**.__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
 # --- Environment files ---
 .env
 .env.*

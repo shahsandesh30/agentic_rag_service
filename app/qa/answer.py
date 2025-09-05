@@ -1,13 +1,12 @@
-# app/qa/answer.py
 from __future__ import annotations
 from typing import List, Dict
-import json
-import math
 import time
 
 from pydantic import ValidationError
 
 from app.retrieval.hybrid import HybridSearcher
+from app.retrieval.vector import VectorSearcher
+from app.retrieval.bm25 import BM25Searcher
 from app.retrieval.store import connect, fetch_full_chunks
 from app.llm.hf import HFGenerator
 from app.qa.prompt import SYSTEM_RULES, make_context_blocks, make_user_prompt
@@ -60,7 +59,7 @@ def _default_citations(hits: List[Dict], limit: int = 5) -> List[Dict]:
 
 def answer_question(
     question: str,
-    searcher: HybridSearcher,
+    searcher: HybridSearcher | VectorSearcher | BM25Searcher,
     generator: HFGenerator,
     *,
     top_k_ctx: int = 8,
@@ -75,16 +74,25 @@ def answer_question(
     Returns a validated AnswerPayload.
     """
 
-    # 1) Retrieve candidates (hybrid + optional rerank)
-    hits = searcher.search(
-        question,
-        top_k=max(top_k_ctx, 10),
-        k_vector=k_vector,
-        k_bm25=k_bm25,
-        rrf_k=rrf_k,
-        rerank=rerank,
-        rerank_k=rerank_k,
-    )
+    # 1) Retrieve candidates
+    if isinstance(searcher, HybridSearcher):
+        hits = searcher.search(
+            question,
+            top_k=max(top_k_ctx, 10),
+            k_vector=k_vector,
+            k_bm25=k_bm25,
+            rrf_k=rrf_k,
+            rerank=rerank,
+            rerank_k=rerank_k,
+        )
+    else:
+        # VectorSearcher or BM25Searcher accept only (query, top_k)
+        hits = searcher.search(
+            question,
+            top_k=max(top_k_ctx, 10),
+        )
+
+    print("hitsssssssssssssssss--------------------\n",hits)
     if not hits:
         return AnswerPayload(
             answer="I don’t have enough information in the provided corpus to answer that.",

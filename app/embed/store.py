@@ -51,8 +51,13 @@ def fetch_chunks_to_embed(
     todo = []
     for cid, text, emb_hash, emb_model in rows:
         t_hash = sha256_text(text or "")
+        # print(emb_hash, t_hash)
+        # print(emb_hash != t_hash)
+        # print(emb_model, model)
         if emb_hash is None or emb_model != model or emb_hash != t_hash:
+            print("0--------")
             todo.append((cid, text))
+    print("to doooooo", todo)
     return todo
 
 def upsert_embeddings(
