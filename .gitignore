@@ -79,3 +79,9 @@ Thumbs.db
 direnv.toml
 *~
 
+*.db
+__pycache__/
+*.faiss
+qdrant_storage/
+
+
