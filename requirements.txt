@@ -33,3 +33,5 @@ faiss-cpu>=1.8.0
 qdrant-client>=1.9.2
 
 pytest
+pytest-cov>=4.0
+ruff>=0.6  
