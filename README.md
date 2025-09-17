@@ -1,141 +1,107 @@
-## Agentic RAG Services
+# Agentic RAG Services (Production Pipeline)
 
-A local, modular Retrieval-Augmented Generation (RAG) service with agentic capabilities. Ingest PDFs/TXT/Markdown into SQLite, compute embeddings, perform hybrid search (vector + BM25 with optional cross-encoder reranking), and answer questions with grounded citations via a FastAPI API. Features an intelligent agent workflow using LangGraph for intent routing, query rewriting, and safety compliance.
+A modular, production-style Retrieval-Augmented Generation (RAG) service with agentic capabilities.  
+Documents (PDF/TXT/Markdown) are ingested into **SQLite** (for metadata + chunks),  
+embeddings are stored in **FAISS** (fast vector search),  
+and answers are generated via **Groq-hosted LLMs** with grounded citations.  
 
-### Features
-- **Hybrid retrieval**: vector (SentenceTransformers) + BM25 with Reciprocal Rank Fusion (RRF)
-- **Optional cross-encoder reranking** for higher precision
-- **Lightweight storage**: SQLite for documents, chunks, and embeddings (float32 BLOB)
-- **FastAPI endpoints**: chat, search, grounded QA with citations, and agentic workflow
-- **Agentic workflow**: LangGraph-based agent with intent routing, query rewriting, and safety checks
-- **Safety & compliance**: Content filtering, PII detection, injection prevention
-- **Observability**: Prometheus metrics, OpenTelemetry tracing, structured logging
-- **Evaluation framework**: Comprehensive RAG evaluation with multiple metrics
-- **Simple CLIs** for ingestion, embedding, search, and agent execution
+An **agent workflow** (LangGraph) provides intent routing, query rewriting, and compliance checks.
 
-### Repository layout
-- `app/corpus/`: ingest files, clean text, chunk, and persist to SQLite
-- `app/embed/`: embedding model wrapper, compute + store embeddings
-- `app/retrieval/`: vector/BM25/hybrid retrieval, reranking, and data access
-- `app/qa/`: prompts, schemas, and RAG QA orchestration
-- `app/llm/`: Hugging Face causal LM wrapper
-- `app/agent/`: LangGraph-based agent workflow with intent routing, query rewriting, and safety
-- `app/safety/`: content filtering, PII detection, injection prevention, and compliance checks
-- `app/obs/`: observability middleware, metrics, tracing, and logging
-- `app/eval/`: evaluation framework with retrieval and answer quality metrics
-- `app/api.py`: FastAPI app exposing `/healthz`, `/chat`, `/search`, `/ask`, `/agent/ask`, `/metrics`
-- `rag_local.db`: default SQLite database (with WAL files)
-- `data/`: sample data (`data/policies/final_report.pdf`)
+---
 
-## Quickstart
+## ✨ Features
+- **Vector retrieval with FAISS** (fast ANN search)  
+- **SQLite metadata store** (documents, chunks, faiss_id mapping)  
+- **RAG QA** with citations, confidence scoring, and safety checks  
+- **Groq LLM API integration** (e.g., `llama-3.1-8b-instant`)  
+- **Agentic workflow**:  
+  - intent routing (RAG vs chit-chat)  
+  - query rewriting for better recall  
+  - compliance filtering  
+- **Observability**: Prometheus metrics + OpenTelemetry tracing  
+- **Frontend demo**: API console to test `/search`, `/ask`, `/agent/ask`, `/chat`  
+
+---
+
+## 📂 Repository Layout
+- `app/corpus/` → ingest files, normalize, chunk, persist to SQLite  
+- `app/embed/` → embedding model wrapper (SentenceTransformers)  
+- `app/retrieval/faiss_sqlite.py` → FAISS+SQLite searcher (production pipeline)  
+- `app/qa/` → prompt templates, QA orchestration, schema  
+- `app/llm/` → Groq API client + optional local HF wrapper  
+- `app/agent/` → LangGraph-based agent (router, researcher, answerer, compliance)  
+- `app/safety/` → injection filtering, PII detection, risk scoring  
+- `app/obs/` → observability middleware, metrics, tracing  
+- `app/api.py` → FastAPI app exposing `/healthz`, `/chat`, `/search`, `/ask`, `/agent/ask`, `/metrics`  
+- `scripts/ingest_and_index.py` → end-to-end ingestion (SQLite + FAISS indexing)  
+- `frontend/` → minimal web console for interacting with the API  
+- `rag_local.db` → SQLite database (documents & chunks)  
+- `faiss_index/index.faiss` → FAISS index (embeddings)  
+- `data/` → sample corpus  
+
+---
+
+## 🚀 Quickstart
 
 ### 1) Environment
-Requirements are in `requirements.txt`. A virtual environment is recommended.
-
-```powershell
+```bash
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+source .venv/bin/activate   # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-GPU is optional but recommended. To install CUDA-enabled PyTorch, use the official selector on the PyTorch site: [PyTorch installation page](https://pytorch.org/get-started/locally/).
-
-### 2) Optional: configure `.env`
-Create a `.env` in the repo root to override defaults from `app/config.py`:
+### 2) Configure `.env`
+Create a `.env` in the repo root:
 
 ```ini
-MODEL_NAME=microsoft/phi-2
-DEVICE_MAP=auto
-MAX_NEW_TOKENS=128
-TEMPERATURE=0.2
-TOP_P=0.9
-DO_SAMPLE=false
-PORT=8000
+GROQ_API_KEY=your_api_key_here
+MODEL_NAME=BAAI/bge-small-en-v1.5
 ```
 
-### 3) Ingest your corpus
-Ingest PDFs/TXT/MD from a folder or a single file into `rag_local.db`.
+### 3) Ingest + Index
+Run the ingestion pipeline to process PDFs/TXT/MD into SQLite & FAISS:
 
-```powershell
-python -m app.corpus.ingest_cli data/policies --db rag_local.db --source policies --max-chars 1200 --overlap 150
+```bash
+python -m app.scripts.ingest_and_index data/
 ```
 
-### 4) Compute embeddings
-Compute (or refresh) embeddings for chunks and store them in SQLite.
-
-```powershell
-python -m app.embed.compute_cli --db rag_local.db --model BAAI/bge-small-en-v1.5 --batch-size 64
-```
-
-### 5) Run the API
-
-```powershell
+### 4) Run the API
+```bash
 uvicorn app.api:app --reload --port 8000
 ```
 
-### 6) Serve the frontend
-
-```powershell
+### 5) Frontend Demo
+```bash
 python -m http.server 5173 -d frontend
 # open http://localhost:5173
 ```
 
-## API usage
+---
 
-### POST /search
-Hybrid search (vector | bm25 | hybrid) with optional reranking.
+## 🔌 API Endpoints
 
-```powershell
-$body = @{ query = "what's in the report?"; mode = "hybrid"; top_k = 5; rerank = $true } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/search -ContentType 'application/json' -Body $body
-```
-
+### POST `/search`
+Vector search using FAISS.
 ```bash
-curl -X POST http://localhost:8000/search \
-  -H 'Content-Type: application/json' \
-  -d '{"query":"what\u0027s in the report?","mode":"hybrid","top_k":5,"rerank":true}'
+curl -X POST http://localhost:8000/search   -H "Content-Type: application/json"   -d '{"query":"refund policy", "top_k":5}'
 ```
 
-### POST /ask
-RAG QA: retrieves context, optionally reranks, and asks the LLM to return strict JSON with citations and confidence.
-
-```powershell
-$body = @{ question = "Summarize the report" } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/ask -ContentType 'application/json' -Body $body
-```
-
+### POST `/ask`
+RAG QA with context + Groq LLM.
 ```bash
-curl -X POST http://localhost:8000/ask \
-  -H 'Content-Type: application/json' \
-  -d '{"question":"Summarize the report"}'
+curl -X POST http://localhost:8000/ask   -H "Content-Type: application/json"   -d '{"question":"What does the policy say about refunds?"}'
 ```
 
-### POST /agent/ask
-Agentic workflow: intelligent intent routing, query rewriting, and safety compliance using LangGraph.
-
-```powershell
-$body = @{ question = "What are the key findings in the report?"; trace = $false } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/agent/ask -ContentType 'application/json' -Body $body
-```
-
+### POST `/agent/ask`
+Agentic workflow (routing, rewrites, compliance).
 ```bash
-curl -X POST http://localhost:8000/agent/ask \
-  -H 'Content-Type: application/json' \
-  -d '{"question":"What are the key findings in the report?","trace":false}'
+curl -X POST http://localhost:8000/agent/ask   -H "Content-Type: application/json"   -d '{"question":"What are the key findings?", "trace":true}'
 ```
 
-### POST /chat
-Direct LLM generation (no retrieval).
-
-```powershell
-$body = @{ prompt = "Hello" } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/chat -ContentType 'application/json' -Body $body
-```
-
+### POST `/chat`
+Direct LLM chat (no retrieval).
 ```bash
-curl -X POST http://localhost:8000/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"prompt":"Hello"}'
+curl -X POST http://localhost:8000/chat   -H "Content-Type: application/json"   -d '{"prompt":"Hello"}'
 ```
 
 ### GET /metrics

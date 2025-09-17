@@ -1,3 +1,4 @@
+# app/corpus/ingest.py
 import os, hashlib, json
 from typing import Optional, Dict, List, Tuple
 from slugify import slugify
@@ -62,11 +63,16 @@ def ingest_path(root: str, db_path: str = "rag_local.db", source: str = "local",
             cid = _chunk_id(doc_id, ch["start_char"], ch["end_char"])
             meta = {"source": src_label, "path": stored_path, "mime": mime}
             rows.append((cid, doc_id, i, ch["text"], len(ch["text"]), ch["start_char"], ch["end_char"], ch["section"], json.dumps(meta)))
+
         upsert_chunks(conn, rows)
+
+        # ✅ Add this line to show progress
+        print(f"Ingested {len(rows)} chunks from {stored_path}")
         conn.commit()
 
         n_docs += 1
         n_chunks += len(rows)
+
 
     return {"documents": n_docs, "chunks": n_chunks, "db": db_path}
 
