@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
+import json
 
 from app.llm.groq_gen import GroqGenerator
 from app.retrieval.faiss_sqlite import FaissSqliteSearcher
@@ -15,6 +16,9 @@ from app.obs.tracing import setup_tracing, setup_logging
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.embed.model import Embedder
+
+# 👇 memory functions
+from app.memory.store import save_message, get_recent_messages
 
 # --- FastAPI App ---
 app = FastAPI(title="RAG-Agentic-AI")
@@ -53,6 +57,7 @@ class SearchReq(BaseModel):
     top_k: int = 5
 
 class AskReq(BaseModel):
+    session_id: str = "default"   # 👈 Added session tracking
     question: str
     top_k_ctx: int = 8
 
@@ -77,13 +82,30 @@ def search(req: SearchReq):
 
 @app.post("/ask")
 def ask(req: AskReq):
+    # --- Fetch conversation history ---
+    history = get_recent_messages(req.session_id, limit=5)
+    history_text = "\n".join([f"{m['role']}: {m['content']}" for m in history])
+
+    # --- Combine history + new question ---
+    user_input = f"{history_text}\nUser: {req.question}" if history_text else req.question
+
+    # --- Run RAG QA ---
     payload = answer_question(
-        req.question,
+        user_input,   # 👈 enriched with history
         _searcher,
         _gen,
         top_k_ctx=req.top_k_ctx,
     )
-    return payload.dict()
+
+    # --- Save both Q and A to memory ---
+    save_message(req.session_id, "user", req.question)
+    save_message(req.session_id, "assistant", payload.answer)
+
+    answer_dict = json.loads(payload.dict()['answer'])
+
+    return answer_dict["answer"]
+    # return payload.dict()
+    
 
 @app.post("/agent/ask")
 def agent_ask(req: AgentAskReq):

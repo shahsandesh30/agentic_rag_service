@@ -3,260 +3,139 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>RAG/Agent Demo — API Console</title>
+  <title>RAG/Agent Chat</title>
   <style>
-    :root{--bg:#0b1220;--panel:#10192d;--muted:#a0b3ce;--text:#e6eefb;--accent:#6ea8fe;--accent2:#7df0c9;--danger:#ff6b6b}
-    *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(180deg,#0b1220,#0b1220 40%,#0c1526);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    header{padding:16px 20px;border-bottom:1px solid #1b2740;background:rgba(10,16,28,.6);backdrop-filter:blur(6px);position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center}
-    header h1{margin:0;font-size:18px;letter-spacing:.3px}
-    header input{flex:1;max-width:520px;background:#0f1627;color:var(--text);border:1px solid #21304d;border-radius:10px;padding:8px 10px;font-size:13px}
-    header .btn{padding:8px 12px}
-    main{max-width:1100px;margin:22px auto 80px;padding:0 20px;display:grid;grid-template-columns:260px 1fr;gap:16px}
-    .sidebar{background:var(--panel);border:1px solid #1b2740;border-radius:16px;padding:10px}
-    .endpoint{display:flex;align-items:center;gap:8px;padding:10px;cursor:pointer;border-radius:10px;color:#cfe0ff;border:1px solid transparent}
-    .endpoint small{opacity:.8}
-    .endpoint.active{background:#132244;border-color:#233559}
-    .endpoint:hover{background:#0f1b33}
-    .content{display:grid;gap:16px}
-    .card{background:var(--panel);border:1px solid #1b2740;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
-    .section{padding:16px}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .grid{display:grid;gap:12px}
-    label{font-size:12px;color:var(--muted)}
-    input[type=text], input[type=number], textarea, select{width:100%;background:#0f1627;color:var(--text);border:1px solid #21304d;border-radius:10px;padding:10px 12px;font-size:14px}
-    input[type=checkbox]{transform:scale(1.1)}
-    textarea{min-height:110px;resize:vertical}
-    .btn{cursor:pointer;background:var(--accent);border:none;color:#05122a;padding:10px 14px;border-radius:10px;font-weight:600}
-    .btn.secondary{background:#21304d;color:#e7eefc}
-    .btn.danger{background:var(--danger);color:#fff}
-    .kv{display:grid;grid-template-columns:180px 1fr;gap:8px}
-    .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    pre{background:#0f1627;border:1px solid #21304d;border-radius:10px;padding:12px;overflow:auto;max-height:420px}
-    .muted{color:var(--muted)}
-    .pill{display:inline-flex;gap:6px;align-items:center;padding:2px 8px;border-radius:999px;background:#15213a;border:1px solid #233559;font-size:12px;color:#a9b8d9}
+    body { margin:0; font-family: sans-serif; background:#0b1220; color:#e6eefb; display:flex; height:100vh; }
+    .sidebar { width:260px; background:#10192d; border-right:1px solid #1b2740; padding:10px; overflow-y:auto; }
+    .chat-list { list-style:none; padding:0; margin:0; }
+    .chat-list li { display:flex; justify-content:space-between; align-items:center;
+                    padding:8px 10px; cursor:pointer; border-radius:8px; margin-bottom:4px; }
+    .chat-list li.active { background:#132244; }
+    .chat-title { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .delete-btn { background:none; border:none; color:#a0b3ce; font-size:14px; cursor:pointer; margin-left:6px; }
+    .delete-btn:hover { color:#ff6b6b; }
+    .chat { flex:1; display:flex; flex-direction:column; }
+    .messages { flex:1; padding:16px; overflow-y:auto; }
+    .msg { margin-bottom:12px; }
+    .msg.user { text-align:right; }
+    .msg.assistant { text-align:left; }
+    .msg span { display:inline-block; padding:10px 14px; border-radius:12px; max-width:70%; }
+    .msg.user span { background:#6ea8fe; color:#05122a; }
+    .msg.assistant span { background:#21304d; color:#e7eefc; }
+    .input-bar { display:flex; padding:12px; border-top:1px solid #1b2740; background:#10192d; }
+    .input-bar textarea { flex:1; resize:none; border:none; border-radius:10px; padding:10px; font-size:14px; background:#0f1627; color:#e6eefb; }
+    .btn { margin-left:8px; background:#6ea8fe; border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; color:#05122a; }
+    .toggle { margin-left:8px; display:flex; align-items:center; gap:6px; color:#a0b3ce; font-size:13px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>API Console</h1>
-    <input id="apiBase" type="text" placeholder="http://localhost:8000" />
-    <button class="btn secondary" onclick="saveBase()">Save</button>
-    <span class="pill">Use with: <code>uvicorn app.api:app --reload --port 8000</code></span>
-  </header>
-  <main>
-    <aside class="sidebar" id="sidebar"></aside>
-    <section class="content">
-      <div class="card section">
-        <div class="row" style="justify-content:space-between">
-          <h3 style="margin:0" id="title">/agent/ask</h3>
-          <div class="row">
-            <button class="btn" id="sendBtn" onclick="send()">Send</button>
-            <button class="btn secondary" onclick="loadDefaults()">Reset</button>
-          </div>
-        </div>
-        <div id="form" class="grid"></div>
-      </div>
-
-      <div class="card section">
-        <h3 style="margin:0 0 8px">Request</h3>
-        <pre id="reqPre" class="muted"></pre>
-      </div>
-
-      <div class="card section">
-        <div class="row" style="justify-content:space-between">
-          <h3 style="margin:0">Response</h3>
-          <div class="row">
-            <button class="btn secondary" onclick="copy('#resPre')">Copy JSON</button>
-            <button class="btn secondary" onclick="copy('#curlPre')">Copy cURL</button>
-          </div>
-        </div>
-        <pre id="resPre"></pre>
-      </div>
-
-      <div class="card section">
-        <h3 style="margin:0 0 8px">cURL</h3>
-        <pre id="curlPre" class="muted"></pre>
-        <div class="muted">Tip: enable CORS in <code>app/api.py</code> for browser use.</div>
-      </div>
-    </section>
-  </main>
+  <aside class="sidebar">
+    <h3>Sessions</h3>
+    <ul id="chatList" class="chat-list"></ul>
+    <button onclick="newSession()" class="btn" style="margin-top:10px;width:100%;">+ New Chat</button>
+  </aside>
+  <section class="chat">
+    <div id="messages" class="messages"></div>
+    <div class="input-bar">
+      <textarea id="input" rows="1" placeholder="Type your question..."></textarea>
+      <button class="btn" onclick="send()">Send</button>
+      <label class="toggle">
+        <input type="checkbox" id="agentToggle"> Use Agent
+      </label>
+    </div>
+  </section>
 
 <script>
-// ===== Config =====
-const endpoints = [
-  {
-    key: 'agentAsk', title: '/agent/ask', path: '/agent/ask',
-    fields: [
-      {k:'question', t:'text', label:'question', placeholder:'Ask something grounded in your corpus...'},
-      {k:'trace', t:'checkbox', label:'trace', def:false},
-    ],
-  },
-  {
-    key: 'ask', title: '/ask', path: '/ask',
-    fields: [
-      {k:'question', t:'text', label:'question', placeholder:'e.g., What does the policy say about refunds?'},
-      {k:'top_k_ctx', t:'number', label:'top_k_ctx', def:8},
-      {k:'rerank', t:'checkbox', label:'rerank', def:true},
-      {k:'rerank_k', t:'number', label:'rerank_k', def:20},
-      {k:'k_vector', t:'number', label:'k_vector', def:40},
-      {k:'k_bm25', t:'number', label:'k_bm25', def:40},
-      {k:'rrf_k', t:'number', label:'rrf_k', def:60},
-      {k:'mmr', t:'checkbox', label:'mmr', def:true},
-      {k:'mmr_alpha', t:'number', label:'mmr_alpha', def:0.7, step:'0.05'},
-      {k:'per_doc_cap', t:'number', label:'per_doc_cap', def:2},
-    ],
-  },
-  {
-    key: 'search', title: '/search', path: '/search',
-    fields: [
-      {k:'query', t:'text', label:'query', placeholder:'refund policy'},
-      {k:'top_k', t:'number', label:'top_k', def:5},
-      {k:'mode', t:'select', label:'mode', def:'hybrid', opts:['hybrid','vector','bm25']},
-      {k:'k_vector', t:'number', label:'k_vector', def:40},
-      {k:'k_bm25', t:'number', label:'k_bm25', def:40},
-      {k:'rrf_k', t:'number', label:'rrf_k', def:60},
-      {k:'rerank', t:'checkbox', label:'rerank', def:false},
-      {k:'rerank_k', t:'number', label:'rerank_k', def:20},
-      {k:'mmr', t:'checkbox', label:'mmr', def:true},
-      {k:'mmr_alpha', t:'number', label:'mmr_alpha', def:0.7, step:'0.05'},
-      {k:'per_doc_cap', t:'number', label:'per_doc_cap', def:2},
-    ],
-  },
-  {
-    key: 'chat', title: '/chat', path: '/chat',
-    fields: [
-      {k:'prompt', t:'text', label:'prompt', placeholder:'Say hello'},
-    ],
-  },
-  {
-    key: 'feedback', title: '/feedback', path: '/feedback',
-    fields: [
-      {k:'question', t:'text', label:'question'},
-      {k:'answer', t:'text', label:'answer'},
-      {k:'confidence', t:'number', label:'confidence', def:0.0, step:'0.01'},
-      {k:'rating', t:'select', label:'rating', def:1, opts:[1,0,-1]},
-      {k:'notes', t:'text', label:'notes'},
-      {k:'citations', t:'textarea', label:'citations (JSON array)', placeholder:'[{"chunk_id":"..."}]'},
-    ],
-  },
-];
+const base = localStorage.getItem('apiBase') || "http://localhost:8000";
+let sessions = JSON.parse(localStorage.getItem('sessions')||"[]");
+let currentSession = sessions.length ? sessions[0].id : createSessionId();
+renderChatList();
 
-// ===== UI =====
-const sidebar = document.getElementById('sidebar');
-const titleEl = document.getElementById('title');
-const formEl = document.getElementById('form');
-const reqPre = document.getElementById('reqPre');
-const resPre = document.getElementById('resPre');
-const curlPre = document.getElementById('curlPre');
-const sendBtn = document.getElementById('sendBtn');
-const baseEl = document.getElementById('apiBase');
+function createSessionId(){ return "sess_" + Math.random().toString(36).slice(2,10); }
 
-let current = endpoints[0];
+function newSession(){
+  const id = createSessionId();
+  sessions.unshift({id, messages:[]});
+  saveSessions();
+  currentSession = id;
+  renderChatList();
+  renderMessages();
+}
 
-function loadBase(){ const v = localStorage.getItem('apiBase'); if(v) baseEl.value = v; }
-function saveBase(){ localStorage.setItem('apiBase', baseEl.value.trim()); }
-
-function makeField(f){
-  const wrap = document.createElement('div');
-  wrap.className = (f.t==='text' || f.t==='textarea') ? 'grid' : 'two';
-  const label = document.createElement('label'); label.textContent = f.label;
-  let input;
-  if(f.t==='select'){
-    input = document.createElement('select');
-    f.opts.forEach(o=>{ const opt=document.createElement('option'); opt.value=o; opt.textContent=o; input.appendChild(opt); });
-    input.value = f.def;
-  } else if(f.t==='checkbox'){
-    input = document.createElement('input'); input.type='checkbox'; input.checked = !!f.def;
-  } else if(f.t==='number'){
-    input = document.createElement('input'); input.type='number'; input.value = f.def ?? 0; if(f.step) input.step=f.step;
-  } else if(f.t==='textarea'){
-    input = document.createElement('textarea'); input.placeholder = f.placeholder||''; input.value = f.def ?? '';
-  } else { // text
-    input = document.createElement('textarea'); input.placeholder = f.placeholder||''; input.value = f.def ?? ''; input.style.minHeight='72px';
+function deleteSession(id){
+  sessions = sessions.filter(s=>s.id!==id);
+  if(currentSession===id){
+    currentSession = sessions.length ? sessions[0].id : createSessionId();
+    if(!sessions.length) sessions.push({id:currentSession, messages:[]});
   }
-  input.dataset.key = f.k; input.dataset.type = f.t;
-  wrap.appendChild(label); wrap.appendChild(input);
-  return wrap;
+  saveSessions();
+  renderChatList();
+  renderMessages();
 }
 
-function renderSidebar(){
-  sidebar.innerHTML='';
-  endpoints.forEach(ep=>{
+function saveSessions(){ localStorage.setItem('sessions', JSON.stringify(sessions)); }
+
+function renderChatList(){
+  const ul = document.getElementById('chatList');
+  ul.innerHTML = '';
+  sessions.forEach(s=>{
+    const li = document.createElement('li');
+    const title = document.createElement('span');
+    title.className = "chat-title";
+    title.textContent = s.messages[0]?.content?.slice(0,30) || "New Chat";
+    title.onclick = ()=>{ currentSession=s.id; renderChatList(); renderMessages(); };
+
+    const del = document.createElement('button');
+    del.className="delete-btn";
+    del.textContent="✕";
+    del.onclick=(e)=>{ e.stopPropagation(); deleteSession(s.id); };
+
+    li.className = (s.id===currentSession ? "active":"");
+    li.appendChild(title);
+    li.appendChild(del);
+    ul.appendChild(li);
+  });
+}
+
+function renderMessages(){
+  const session = sessions.find(s=>s.id===currentSession);
+  const box = document.getElementById('messages');
+  box.innerHTML='';
+  if(!session) return;
+  session.messages.forEach(m=>{
     const div = document.createElement('div');
-    div.className = 'endpoint'+(ep===current?' active':'');
-    div.innerHTML = `<strong>${ep.title}</strong> <small>${ep.path}</small>`;
-    div.onclick = ()=>{ current=ep; buildForm(); };
-    sidebar.appendChild(div);
+    div.className = "msg "+m.role;
+    div.innerHTML = `<span>${m.content}</span>`;
+    box.appendChild(div);
   });
+  box.scrollTop = box.scrollHeight;
 }
-
-function buildForm(){
-  titleEl.textContent = current.title;
-  formEl.innerHTML='';
-  current.fields.forEach(f=> formEl.appendChild(makeField(f)) );
-  loadDefaults();
-}
-
-function loadDefaults(){
-  // nothing extra—fields already carry defaults
-  updatePreview();
-}
-
-function gather(){
-  const body = {};
-  formEl.querySelectorAll('[data-key]').forEach(el=>{
-    const k = el.dataset.key; const t = el.dataset.type;
-    if(t==='checkbox'){ body[k] = el.checked; }
-    else if(t==='number'){ body[k] = Number(el.value); }
-    else if(k==='citations'){
-      try{ body[k] = JSON.parse(el.value||'[]'); }catch{ body[k] = []; }
-    }
-    else {
-      body[k] = el.value.trim();
-    }
-  });
-  return body;
-}
-
-function updatePreview(){
-  const body = gather();
-  reqPre.textContent = JSON.stringify(body, null, 2);
-  const base = (baseEl.value||'').replace(/\/$/,'');
-  curlPre.textContent = `curl -X POST 
-  '${base}${current.path}' 
-  -H 'Content-Type: application/json' 
-  -d '${JSON.stringify(body).replace(/'/g,"'\''")}'`;
-}
-
-formEl.addEventListener('input', updatePreview);
-baseEl.addEventListener('input', updatePreview);
 
 async function send(){
-  sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
-  resPre.textContent = '';
-  updatePreview();
-  try{
-    const base = (baseEl.value||'').replace(/\/$/,'');
-    const body = gather();
-    const res = await fetch(base + current.path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    const txt = await res.text();
-    let out; try{ out = JSON.parse(txt); }catch{ out = { raw: txt }; }
-    resPre.textContent = JSON.stringify(out, null, 2);
-  }catch(e){
-    resPre.textContent = JSON.stringify({error: e.message}, null, 2);
-  } finally{
-    sendBtn.disabled = false; sendBtn.textContent = 'Send';
-  }
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  const session = sessions.find(s=>s.id===currentSession);
+  session.messages.push({role:'user', content:text});
+  renderMessages();
+  saveSessions();
+
+  const useAgent = document.getElementById('agentToggle').checked;
+  const endpoint = useAgent ? "/agent/ask" : "/ask";
+  const body = useAgent ? {question:text, session_id:currentSession} : {question:text, session_id:currentSession, top_k_ctx:8};
+
+  const res = await fetch(base+endpoint, {method:"POST", headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const data = await res.json();
+  const reply = data.final || data.output || data.answer || JSON.stringify(data);
+
+  session.messages.push({role:'assistant', content:reply});
+  renderMessages();
+  saveSessions();
 }
 
-function copy(sel){ const el = document.querySelector(sel); navigator.clipboard.writeText(el.textContent||''); }
-
 // init
-loadBase();
-renderSidebar();
-buildForm();
-updatePreview();
+if(!sessions.length) newSession(); else renderMessages();
 </script>
 </body>
 </html>
