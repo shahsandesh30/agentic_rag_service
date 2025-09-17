@@ -48,6 +48,23 @@ def init_db(conn):
     )
     """)
 
+    # --- Conversation memory ---
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS conversations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        role TEXT NOT NULL,         -- 'user' or 'assistant'
+        content TEXT NOT NULL,
+        embedding BLOB,             -- optional: store embedding for semantic memory
+        created_at REAL DEFAULT (strftime('%s','now'))
+    )
+    """)
+
+    conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_conversations_session 
+    ON conversations(session_id)
+    """)
+
 def upsert_document(conn: sqlite3.Connection, doc_id: str, path: str, source: str,
                     sha256_hex: str, mime: str, n_pages: int) -> None:
     conn.execute("""
