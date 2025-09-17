@@ -84,4 +84,6 @@ __pycache__/
 *.faiss
 qdrant_storage/
 
+/data
+
 

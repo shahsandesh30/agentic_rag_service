@@ -1,3 +1,4 @@
+# app/agent/graph.py
 from __future__ import annotations
 from typing import Dict, Any
 from langgraph.graph import StateGraph, END
@@ -8,21 +9,25 @@ from app.agent.researcher import make_rewrites
 from app.agent.answer import answer_with_rewrites
 from app.agent.compliance import check
 
-from app.retrieval.vector import VectorSearcher
-from app.retrieval.bm25 import BM25Searcher
-from app.retrieval.hybrid import HybridSearcher
-from app.llm.hf import HFGenerator, get_shared_generator
+from app.retrieval.faiss_sqlite import FaissSqliteSearcher
+from app.embed.model import Embedder
+from app.llm.groq_gen import GroqGenerator
+import os
+from dotenv import load_dotenv
 
-# singletons
-_V = VectorSearcher(db_path="rag_local.db", model_name="BAAI/bge-small-en-v1.5")
-_B = BM25Searcher(db_path="rag_local.db")
-_H = HybridSearcher(_V, _B, db_path="rag_local.db")
-_GEN = get_shared_generator()
+# --- Init shared components ---
+load_dotenv()
 
+embedder = Embedder(model_name="BAAI/bge-small-en-v1.5")
+_SEARCHER = FaissSqliteSearcher(embedder)
+
+llm_api_key = os.getenv("GROQ_API_KEY")
+_GEN = GroqGenerator(model="llama-3.1-8b-instant", api_key=llm_api_key)
+
+# --- Nodes ---
 def node_router(state: AgentState) -> AgentState:
     intent = route(state["question"], allow_llm_fallback=False, generator=_GEN)
     state["intent"] = intent
-    print("intenttttttttttt", intent)
     state.setdefault("trace", []).append({"node": "router", "intent": intent})
     return state
 
@@ -59,8 +64,8 @@ def node_answer(state: AgentState) -> AgentState:
 
     bundle = answer_with_rewrites(
         state["question"],
-        state.get("rewrites", [state["question"]]),
-        searcher=_H,
+        state.get("rewrites", []),
+        searcher=_SEARCHER,
         generator=_GEN,
         top_k_ctx=8,
         confidence_gate=0.65,
@@ -79,7 +84,7 @@ def node_compliance(state: AgentState) -> AgentState:
     state.setdefault("trace", []).append({"node": "compliance", "blocked": state["best"]["safety"]["blocked"]})
     return state
 
-# Build the graph
+# --- Build the graph ---
 def build_graph():
     g = StateGraph(AgentState)
     g.add_node("router", node_router)
@@ -94,7 +99,7 @@ def build_graph():
     g.add_edge("compliance", END)
     return g.compile()
 
-# Convenience runner
+# --- Runner ---
 def run_agent(question: str) -> Dict[str, Any]:
     app = build_graph()
     state: AgentState = {"question": question}

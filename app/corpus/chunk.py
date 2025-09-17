@@ -1,3 +1,4 @@
+# app/corpus/chunk.py
 import re, hashlib
 from typing import List, Dict, Optional
 
@@ -18,11 +19,16 @@ def split_by_headings(text: str) -> List[Dict]:
     for i, m in enumerate(matches):
         start = m.start()
         end = matches[i+1].start() if i+1 < len(matches) else len(text)
-        sections.append({"section_title": m.group(1).strip("# ").strip(), "start": start, "end": end})
+        sections.append({
+            "section_title": m.group(1).strip("# ").strip(),
+            "start": start,
+            "end": end
+        })
     return sections
 
-
-def sliding_window_chunks(text: str, section: Optional[str], max_chars=1200, overlap=150) -> List[Dict]:
+def sliding_window_chunks(text: str, section: Optional[str],
+                          max_chars=1200, overlap=150) -> List[Dict]:
+    """Split text into overlapping sliding windows."""
     chunks = []
     i = 0
     while i < len(text):
@@ -35,19 +41,27 @@ def sliding_window_chunks(text: str, section: Optional[str], max_chars=1200, ove
                 "end_char": j,
                 "section": section
             })
-        if j >= len(text): break
+        if j >= len(text):
+            break
         i = max(0, j - overlap)
     return chunks
 
-def chunk_text(text: str, heading_aware=True, **kw) -> List[Dict]:
+def chunk_text(text: str, heading_aware=True,
+               max_chars=1200, overlap=150) -> List[Dict]:
     """
-    Returns list of chunks with deterministic ids assigned by caller using (doc_key + offsets).
+    Public API used by ingestion.
+    Returns list of chunks with {text, start_char, end_char, section}.
     """
     all_chunks = []
     if heading_aware:
         for sec in split_by_headings(text):
             sec_text = text[sec["start"]:sec["end"]]
-            all_chunks += sliding_window_chunks(sec_text, sec["section_title"], **kw)
+            all_chunks += sliding_window_chunks(sec_text,
+                                                sec["section_title"],
+                                                max_chars=max_chars,
+                                                overlap=overlap)
     else:
-        all_chunks += sliding_window_chunks(text, None, **kw)
+        all_chunks += sliding_window_chunks(text, None,
+                                            max_chars=max_chars,
+                                            overlap=overlap)
     return all_chunks
