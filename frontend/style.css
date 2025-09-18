@@ -1,0 +1,21 @@
+body { margin:0; font-family: sans-serif; background:#0b1220; color:#e6eefb; display:flex; height:100vh; }
+.sidebar { width:260px; background:#10192d; border-right:1px solid #1b2740; padding:10px; overflow-y:auto; }
+.chat-list { list-style:none; padding:0; margin:0; }
+.chat-list li { display:flex; justify-content:space-between; align-items:center;
+                padding:8px 10px; cursor:pointer; border-radius:8px; margin-bottom:4px; }
+.chat-list li.active { background:#132244; }
+.chat-title { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.delete-btn { background:none; border:none; color:#a0b3ce; font-size:14px; cursor:pointer; margin-left:6px; }
+.delete-btn:hover { color:#ff6b6b; }
+.chat { flex:1; display:flex; flex-direction:column; }
+.messages { flex:1; padding:16px; overflow-y:auto; }
+.msg { margin-bottom:12px; }
+.msg.user { text-align:right; }
+.msg.assistant { text-align:left; }
+.msg span { display:inline-block; padding:10px 14px; border-radius:12px; max-width:70%; }
+.msg.user span { background:#6ea8fe; color:#05122a; }
+.msg.assistant span { background:#21304d; color:#e7eefc; }
+.input-bar { display:flex; padding:12px; border-top:1px solid #1b2740; background:#10192d; }
+.input-bar textarea { flex:1; resize:none; border:none; border-radius:10px; padding:10px; font-size:14px; background:#0f1627; color:#e6eefb; }
+.btn { margin-left:8px; background:#6ea8fe; border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; color:#05122a; }
+.toggle { margin-left:8px; display:flex; align-items:center; gap:6px; color:#a0b3ce; font-size:13px; }

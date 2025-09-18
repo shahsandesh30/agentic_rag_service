@@ -101,7 +101,7 @@ def answer_question(
     with _tracer.start_as_current_span("generation.llm"):
         t0 = time.perf_counter()
         try:
-            text = generator.generate(prompt=user, contexts=context_blocks, system=system)
+            text = generator.generate(prompt=user, contexts=context_blocks, system=system, max_tokens=1024)
         except Exception:
             text = ""
         finally:

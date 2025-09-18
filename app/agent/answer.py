@@ -28,7 +28,6 @@ def answer_with_rewrites(
             searcher,
             generator,
             top_k_ctx=top_k_ctx,
-            rerank=False,  # rerank disabled in FAISS-only baseline
         )
         d = payload.dict()
         d["_rewrite"] = q
