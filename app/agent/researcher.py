@@ -23,7 +23,7 @@ def make_rewrites(
 
     # --- Step 1: Ask LLM for rewrites ---
     prompt = (
-        "Rewrite the following legal question into up to 5 retrieval-friendly queries. "
+        "Rewrite the following legal question into up to 3 retrieval-friendly queries. "
         "Use synonyms, alternative legal terms, or related formulations. "
         "Each rewrite must be short and standalone. "
         "Return each rewrite on a new line, without numbering."
@@ -61,13 +61,21 @@ def make_rewrites(
                 keep.append(i)
         uniq = [all_queries[i] for i in keep]
 
-    # --- Step 4: Retrieval-aware filtering (optional) ---
+    # --- Step 4: Retrieval-aware filtering (optional, batched) ---
     if searcher is not None:
+        # Encode all candidate queries in one go
+        vecs = searcher.embedder.encode(uniq).astype("float32")
+
+        # Normalize for cosine similarity
+        vecs = vecs / (np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-12)
+
+        # Perform a single batched FAISS search
+        D, I = searcher.index.search(vecs, top_k=3)
+
         scored = []
-        for q in uniq:
-            hits = searcher.search(q, top_k=3)
-            best_score = max((h["score"] for h in hits), default=0.0)
-            scored.append((q, best_score))
+        for idx, q in enumerate(uniq):
+            best_score = max(D[idx]) if len(D[idx]) > 0 else 0.0
+            scored.append((q, float(best_score)))
 
         # Rank by retrieval strength
         scored.sort(key=lambda x: x[1], reverse=True)

@@ -62,6 +62,7 @@ class AskReq(BaseModel):
     top_k_ctx: int = 8
 
 class AgentAskReq(BaseModel):
+    session_id: str = "default"   # 👈 Added session tracking
     question: str
     trace: bool = False
 
@@ -109,5 +110,19 @@ def ask(req: AskReq):
 
 @app.post("/agent/ask")
 def agent_ask(req: AgentAskReq):
-    out = run_agent(req.question)
+    # --- Fetch conversation history ---
+    history = get_recent_messages("agent_" + req.session_id, limit=5)
+    history_text = "\n".join([f"{m['role']}: {m['content']}" for m in history])
+
+    # --- Combine history + new question ---
+    enriched_q = f"{history_text}\nUser: {req.question}" if history_text else req.question
+
+    # --- Run agent ---
+    out = run_agent(enriched_q)
+
+    # --- Save memory ---
+    save_message("agent_" + req.session_id, "user", req.question)
+    save_message("agent_" + req.session_id, "assistant", out["final"]["answer"])
+
     return out if req.trace else out["final"]
+

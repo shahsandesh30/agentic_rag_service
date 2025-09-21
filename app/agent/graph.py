@@ -36,9 +36,10 @@ def node_research(state: AgentState) -> AgentState:
         state["rewrites"] = []
         state.setdefault("trace", []).append({"node": "researcher", "skipped": True})
         return state
-    rw = make_rewrites(state["question"], max_rewrites=3, generator=_GEN)
+    rw = make_rewrites(state["question"], max_rewrites=1, generator=_GEN)
     state["rewrites"] = rw
     state.setdefault("trace", []).append({"node": "researcher", "rewrites": rw})
+    print(f"Rewrites:-------------- {rw}")
     return state
 
 def node_answer(state: AgentState) -> AgentState:
@@ -69,6 +70,7 @@ def node_answer(state: AgentState) -> AgentState:
         generator=_GEN,
         top_k_ctx=8,
         confidence_gate=0.65,
+        mode="merge"
     )
     state["answers"] = bundle["answers"]
     state["best"] = bundle["best"]
