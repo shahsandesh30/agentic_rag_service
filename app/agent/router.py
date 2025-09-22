@@ -9,6 +9,7 @@ RAG_LEGAL_HINTS = re.compile(
     r"(law|legal|act|statute|crime|criminal|civil|constitution|case law|precedent|penalty|offence|offense|section|article|regulation|clause|court|justice|tribunal|appeal|ruling|decision)",
     re.I,
 )
+WEB_HINTS = re.compile(r"(latest|today|news|update|current|recent|web|online|search)", re.I)
 
 def route(
     question: str,
@@ -30,6 +31,9 @@ def route(
     # --- Rule 2: Legal hints detected → RAG ---
     if RAG_LEGAL_HINTS.search(q):
         return "rag"
+    
+    if WEB_HINTS.search(q):
+        return "web"
 
     # --- Optional LLM fallback for ambiguous cases ---
     if allow_llm_fallback:
@@ -37,15 +41,17 @@ def route(
             raise ValueError("GroqGenerator required when allow_llm_fallback=True")
 
         label = generator.generate(
-            prompt=f"Classify the user question as 'rag' (legal/document QA) or 'chitchat'. "
-                   f"Output exactly one word: rag or chitchat.\nQ: {q}",
+            prompt=f"Classify the user question as 'rag' (legal/document QA), 'web' (web search), or 'chitchat'. "
+                f"Output exactly one word: rag, web, or chitchat.\nQ: {q}",
             contexts=[],
-            system="You are a strict classifier. Only respond with 'rag' or 'chitchat'.",
+            system="You are a strict classifier. Only respond with 'rag', 'web', or 'chitchat'.",
             max_tokens=16,
             temperature=0.0
         ).strip().lower()
 
-        return "rag" if "rag" in label else "chitchat"
-
-    # --- Default: Assume retrieval needed (safer for legal QA) ---
-    return "rag"
+        if "rag" in label:
+            return "rag"
+        elif "web" in label:
+            return "web"
+        else:
+            return "chitchat"
