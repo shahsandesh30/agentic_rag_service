@@ -1,3 +1,4 @@
+# app/corpus/files.py
 import os, mimetypes, hashlib
 from typing import Iterator, Tuple
 
@@ -14,7 +15,6 @@ def iter_paths(root: str) -> Iterator[str]:
             ext = os.path.splitext(name)[1].lower()
             if ext in SUPPORTED_EXT:
                 yield p
-
 
 def file_sha256(path: str) -> str:
     h  = hashlib.sha256()

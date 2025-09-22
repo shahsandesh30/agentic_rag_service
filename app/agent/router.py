@@ -1,32 +1,57 @@
+# app/agent/router.py
 from __future__ import annotations
-from typing import Literal
+from typing import Literal, Optional
 import re
-from app.llm.hf import HFGenerator
-from typing import Optional
+from app.llm.groq_gen import GroqGenerator
 
-RAG_HINTS = re.compile(
-    r"(What are|policy|how do i|where is|procedure|regulation|guide|manual|refund|kyc|risk|terms|contract|compliance|step|install|configure|error|exception)",
+# 🔎 Regex hints tuned for Australian legal documents
+RAG_LEGAL_HINTS = re.compile(
+    r"(law|legal|act|statute|crime|criminal|civil|constitution|case law|precedent|penalty|offence|offense|section|article|regulation|clause|court|justice|tribunal|appeal|ruling|decision)",
     re.I,
 )
+WEB_HINTS = re.compile(r"(latest|today|news|update|current|recent|web|online|search)", re.I)
 
-def route(question: str, allow_llm_fallback: bool = False, generator: Optional[HFGenerator] = None) -> Literal["rag", "chitchat"]:
-    # Simple heuristics first
+def route(
+    question: str,
+    allow_llm_fallback: bool = False,
+    generator: Optional[GroqGenerator] = None
+) -> Literal["rag", "chitchat"]:
+    """
+    Lightweight intent classifier:
+    - Heuristic rules first (regex & length).
+    - Optionally falls back to Groq LLM for classification.
+    - Returns either 'rag' (legal/document QA) or 'chitchat'.
+    """
     q = question.strip()
-    if len(q.split()) <= 3 and not RAG_HINTS.search(q):
-        print("router.py chitchatttttttttt")
+
+    # --- Rule 1: Very short queries are usually chit-chat ---
+    if len(q.split()) <= 3 and not RAG_LEGAL_HINTS.search(q):
         return "chitchat"
-    if RAG_HINTS.search(q):
-        print("router.py raggggggggggggggg1")
+
+    # --- Rule 2: Legal hints detected → RAG ---
+    if RAG_LEGAL_HINTS.search(q):
         return "rag"
-    # Optional LLM fallback (local, fast)
+    
+    if WEB_HINTS.search(q):
+        return "web"
+
+    # --- Optional LLM fallback for ambiguous cases ---
     if allow_llm_fallback:
-        print("router.py falbackkkkkkkkkk")
-        gen = generator or HFGenerator()
-        label = gen.generate(
-            prompt=f"Classify the user question as 'rag' or 'chitchat'. Only output rag or chitchat.\nQ: {q}",
+        if generator is None:
+            raise ValueError("GroqGenerator required when allow_llm_fallback=True")
+
+        label = generator.generate(
+            prompt=f"Classify the user question as 'rag' (legal/document QA), 'web' (web search), or 'chitchat'. "
+                f"Output exactly one word: rag, web, or chitchat.\nQ: {q}",
             contexts=[],
-            system="You are a classifier. Output a single token: rag or chitchat."
+            system="You are a strict classifier. Only respond with 'rag', 'web', or 'chitchat'.",
+            max_tokens=16,
+            temperature=0.0
         ).strip().lower()
-        print("router.py falbackkkkk resultttt:", label )
-        return "rag" if "rag" in label else "chitchat"
-    return "rag"
+
+        if "rag" in label:
+            return "rag"
+        elif "web" in label:
+            return "web"
+        else:
+            return "chitchat"
