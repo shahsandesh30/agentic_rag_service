@@ -37,3 +37,11 @@ class Settings(BaseModel):
     port: int = _getenv("PORT", 8000)
 
 settings = Settings()
+
+
+
+# GEN_CONFIGS = {
+#     "answer": {"temperature": 0.5, "max_tokens": 1024},
+#     "classify": {"temperature": 0.0, "max_tokens": 32},
+#     "rewrite": {"temperature": 0.2, "max_tokens": 128},
+# }

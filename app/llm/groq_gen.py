@@ -21,9 +21,10 @@ class GroqGenerator:
         self,
         prompt: str,
         contexts: List[str] = [],
-        system: str = "You are a grounded QA assistant."
+        system: str = "You are a grounded QA assistant.",
+        temperature: float = 0.2,
+        max_tokens: int = 512,
     ) -> str:
-        # Build chat messages
         msgs = [{"role": "system", "content": system}]
         if contexts:
             ctx = "\n\n".join(contexts)
@@ -33,7 +34,7 @@ class GroqGenerator:
         resp = self.client.chat.completions.create(
             model=self.model,
             messages=msgs,
-            temperature=0.2,
-            max_tokens=512,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
         return resp.choices[0].message.content.strip()
