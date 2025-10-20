@@ -21,7 +21,7 @@ class HFGenerator:
         self.tokenizer = AutoTokenizer.from_pretrained(settings.model_name, use_fast=True)
         self.model = AutoModelForCausalLM.from_pretrained(
             settings.model_name,
-            torch_dtype=torch.bfloat16 if torch.cuda.is_available else torch.float32,
+            torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
             device_map=settings.device_map,
             trust_remote_code=True,
         )
@@ -29,7 +29,7 @@ class HFGenerator:
     @torch.inference_mode()
     def generate(self, prompt: str, contexts: List[str] | None = None, system: str | None = None) -> str:
         system = system or "You are a concise helpful assistant."
-        contexts = contexts  or []
+        contexts = contexts or []
         text = _format_prompt(self.tokenizer, system, prompt, contexts)
         inputs = self.tokenizer(text, return_tensors="pt").to(self.model.device)
         out = self.model.generate(
