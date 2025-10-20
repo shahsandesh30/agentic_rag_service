@@ -1,50 +1,105 @@
 # app/retrieval/search_cli.py
-import argparse, json
-from app.retrieval.vector import VectorSearcher
-from app.retrieval.bm25 import BM25Searcher
-from app.retrieval.hybrid import HybridSearcher
+"""
+Command-line interface for document search functionality.
+
+Note: This CLI currently only supports FAISS-based vector search.
+The referenced VectorSearcher, BM25Searcher, and HybridSearcher classes
+are not yet implemented in this codebase.
+"""
+import argparse
+import json
+import logging
+from typing import List, Dict, Any
+
+from app.retrieval import FaissSqliteSearcher
+from app.embed.model import Embedder
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def main():
-    p = argparse.ArgumentParser(description="Search: vector | bm25 | hybrid")
-    p.add_argument("query")
-    p.add_argument("--db", default="rag_local.db")
-    p.add_argument("--model", default="BAAI/bge-small-en-v1.5")
-    p.add_argument("--mode", choices=["vector","bm25","hybrid"], default="hybrid")
-    p.add_argument("--k", type=int, default=5)
-    p.add_argument("--kv", type=int, default=40, help="vector candidates for hybrid")
-    p.add_argument("--kb", type=int, default=40, help="bm25 candidates for hybrid")
-    p.add_argument("--rrf-k", type=int, default=60)
-    p.add_argument("--rerank", action="store_true")
-    p.add_argument("--rerank-k", type=int, default=20)
-    p.add_argument("--reranker-model", default="BAAI/bge-reranker-base")
-    p.add_argument("--reranker-batch", type=int, default=16)
-    p.add_argument("--max-passage-chars", type=int, default=1200)
+    """
+    Main CLI function for document search.
+    
+    Currently supports only FAISS-based vector search.
+    """
+    parser = argparse.ArgumentParser(
+        description="Search documents using FAISS vector similarity",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m app.retrieval.search_cli "machine learning algorithms"
+  python -m app.retrieval.search_cli "neural networks" --k 10 --db my_database.db
+        """
+    )
+    
+    parser.add_argument("query", help="Search query string")
+    parser.add_argument("--db", default="rag_local.db", help="Path to SQLite database")
+    parser.add_argument("--model", default="BAAI/bge-small-en-v1.5", help="Embedding model name")
+    parser.add_argument("--k", type=int, default=5, help="Number of results to return")
+    parser.add_argument("--index-file", help="Path to FAISS index file (default: faiss_index/index.faiss)")
+    parser.add_argument("--rerank", action="store_true", help="Enable cross-encoder reranking")
+    parser.add_argument("--rerank-k", type=int, default=20, help="Number of candidates for reranking")
+    parser.add_argument("--reranker-model", default="BAAI/bge-reranker-base", help="Reranker model name")
+    parser.add_argument("--reranker-batch", type=int, default=16, help="Reranker batch size")
+    parser.add_argument("--max-passage-chars", type=int, default=1200, help="Max characters per passage for reranking")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
-    args = p.parse_args()
-
-    vs = VectorSearcher(db_path=args.db, model_name=args.model)
-    bs = BM25Searcher(db_path=args.db)
-    hs = HybridSearcher(vs, bs, db_path=args.db)
-
-    if args.mode == "vector":
-        hits = vs.search(args.query, top_k=args.k)
-    elif args.mode == "bm25":
-        hits = bs.search(args.query, top_k=args.k)
-    else:
-        hits = hs.search(
-            args.query,
-            top_k=args.k,
-            k_vector=args.kv,
-            k_bm25=args.kb,
-            rrf_k=args.rrf_k,
-            rerank=args.rerank,
-            rerank_k=args.rerank_k,
-            reranker_model=args.reranker_model,
-            reranker_batch=args.reranker_batch,
-            max_passage_chars=args.max_passage_chars,
+    args = parser.parse_args()
+    
+    # Configure logging level
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    try:
+        # Initialize embedder
+        logger.info(f"Loading embedding model: {args.model}")
+        embedder = Embedder(model_name=args.model)
+        
+        # Initialize searcher
+        searcher = FaissSqliteSearcher(
+            embedder=embedder,
+            db_path=args.db,
+            index_file=args.index_file
         )
         
-    print(json.dumps(hits, ensure_ascii=False, indent=2))
+        # Perform search
+        logger.info(f"Searching for: '{args.query}'")
+        hits = searcher.search(args.query, top_k=args.k)
+        
+        # Apply reranking if requested
+        if args.rerank and hits:
+            logger.info("Applying cross-encoder reranking")
+            from app.retrieval import Reranker
+            
+            reranker = Reranker(
+                model_name=args.reranker_model,
+                batch_size=args.reranker_batch,
+                max_passage_chars=args.max_passage_chars
+            )
+            
+            # Get more candidates for reranking
+            if len(hits) < args.rerank_k:
+                more_hits = searcher.search(args.query, top_k=args.rerank_k)
+                hits = more_hits
+            
+            hits = reranker.rerank(args.query, hits, top_k=args.k)
+        
+        # Output results
+        print(json.dumps(hits, ensure_ascii=False, indent=2))
+        
+        if not hits:
+            logger.warning("No results found for the given query")
+            
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
     main()
