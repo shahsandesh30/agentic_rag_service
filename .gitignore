@@ -88,3 +88,4 @@ qdrant_storage/
 /temp
 
 
+*.txt
