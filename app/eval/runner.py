@@ -4,9 +4,6 @@ import argparse
 import json
 from typing import Any
 
-from app.retrieval.bm25 import BM25Searcher
-from app.retrieval.vector import VectorSearcher
-
 from app.eval.dataset import load_dataset
 from app.eval.metrics import (
     answer_similarity,
@@ -19,8 +16,10 @@ from app.eval.metrics import (
 )
 from app.llm.hf import HFGenerator
 from app.qa.answer import answer_question
+from app.retrieval.bm25 import BM25Searcher
 from app.retrieval.hybrid import HybridSearcher
 from app.retrieval.store import connect, fetch_full_chunks
+from app.retrieval.vector import VectorSearcher
 
 
 def run_eval(
