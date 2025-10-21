@@ -1,23 +1,25 @@
 # app/qa/answer.py
 from __future__ import annotations
-from typing import List, Dict
+
 import time
 
+from opentelemetry import trace
+
 from app.llm.groq_gen import GroqGenerator  # using Groq now
+
+# Observability
+from app.obs.metrics import GENERATION_LATENCY, TOKENS_INPUT, TOKENS_OUTPUT
 from app.qa.prompt import SYSTEM_RULES, make_context_blocks, make_user_prompt
 from app.qa.schema import AnswerPayload
 
 # Safety
-from app.safety.guard import preflight, postflight
+from app.safety.guard import postflight, preflight
 from app.safety.policy import DEFAULT_POLICY
 
-# Observability
-from app.obs.metrics import GENERATION_LATENCY, TOKENS_INPUT, TOKENS_OUTPUT
-from opentelemetry import trace
 _tracer = trace.get_tracer(__name__)
 
 
-def _normalize(nums: List[float]) -> List[float]:
+def _normalize(nums: list[float]) -> list[float]:
     if not nums:
         return []
     lo, hi = min(nums), max(nums)
@@ -26,7 +28,7 @@ def _normalize(nums: List[float]) -> List[float]:
     return [(x - lo) / (hi - lo) for x in nums]
 
 
-def _confidence_from_hits(hits: List[Dict]) -> float:
+def _confidence_from_hits(hits: list[dict]) -> float:
     base = [h.get("score", 0.0) for h in hits]
     if not base:
         return 0.35
@@ -35,20 +37,22 @@ def _confidence_from_hits(hits: List[Dict]) -> float:
     return max(0.35, min(0.90, 0.35 + 0.55 * raw))
 
 
-def _default_citations(hits: List[Dict], limit: int = 5) -> List[Dict]:
-    cites: List[Dict] = []
+def _default_citations(hits: list[dict], limit: int = 5) -> list[dict]:
+    cites: list[dict] = []
     for h in hits[:limit]:
-        cites.append({
-            "source": h.get("source"),
-            "path": h.get("path"),
-            "section": h.get("section"),
-        })
+        cites.append(
+            {
+                "source": h.get("source"),
+                "path": h.get("path"),
+                "section": h.get("section"),
+            }
+        )
     return cites
 
 
 def answer_question(
     question: str,
-    searcher,            # FaissSearcher only
+    searcher,  # FaissSearcher only
     generator: GroqGenerator,
     *,
     top_k_ctx: int = 8,
@@ -72,11 +76,7 @@ def answer_question(
     full_map = {i: h["text"] for i, h in enumerate(hits[:top_k_ctx])}
 
     # 3) Safety preflight
-    blocked, safety_info, sanitized_full_map = preflight(
-        question,
-        full_map,
-        policy=DEFAULT_POLICY
-    )
+    blocked, safety_info, sanitized_full_map = preflight(question, full_map, policy=DEFAULT_POLICY)
     if blocked:
         return AnswerPayload(
             answer="I can’t help with that.",
@@ -92,7 +92,9 @@ def answer_question(
 
     try:
         tok = generator.tokenizer
-        inp_tokens = len(tok(system + "\n\n" + "\n\n".join(context_blocks) + "\n\n" + user).input_ids)
+        inp_tokens = len(
+            tok(system + "\n\n" + "\n\n".join(context_blocks) + "\n\n" + user).input_ids
+        )
         TOKENS_INPUT.inc(inp_tokens)
     except Exception:
         pass
@@ -101,7 +103,9 @@ def answer_question(
     with _tracer.start_as_current_span("generation.llm"):
         t0 = time.perf_counter()
         try:
-            text = generator.generate(prompt=user, contexts=context_blocks, system=system, max_tokens=1024)
+            text = generator.generate(
+                prompt=user, contexts=context_blocks, system=system, max_tokens=1024
+            )
         except Exception:
             text = ""
         finally:

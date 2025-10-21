@@ -24,7 +24,7 @@ opentelemetry-api>=1.26.0
 opentelemetry-sdk>=1.26.0
 opentelemetry-instrumentation-fastapi>=0.47b0
 
-langgraph 
+langgraph
 langchain-core
 
 groq
@@ -36,6 +36,6 @@ pytest
 fitz
 pymupdf
 pytest-cov>=4.0
-ruff>=0.6  
+ruff>=0.6
 
 ddgs

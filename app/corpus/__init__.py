@@ -17,64 +17,48 @@ Main components:
 - Ingestion pipeline: End-to-end document processing workflow
 """
 
-from .files import (
-    iter_paths,
-    file_sha256,
-    sniff_mime,
-    read_text_any
-)
-from .clean import (
-    normalize_text,
-    clean_whitespace,
-    remove_control_characters
-)
-from .chunk import (
-    chunk_text,
-    split_by_headings,
-    sliding_window_chunks
-)
-from .schema import (
-    connect,
-    init_db,
-    upsert_document,
-    upsert_chunks,
-    upsert_embeddings,
-    fetch_chunk_texts,
-    fetch_full_chunks,
-    missing_embedding_chunk_ids,
-    assign_faiss_ids,
-    chunk_ids_for_faiss_ids
-)
+from .chunk import chunk_text, sliding_window_chunks, split_by_headings
+from .clean import clean_whitespace, normalize_text, remove_control_characters
+from .files import file_sha256, iter_paths, read_text_any, sniff_mime
 from .ingest import ingest_path
 from .interfaces import (
+    ChunkData,
+    DatabaseManager,
+    DocumentData,
     DocumentProcessor,
+    FileIterator,
+    FileMetadata,
+    ProcessingStats,
     TextChunker,
     TextCleaner,
-    FileIterator,
-    DatabaseManager,
-    ChunkData,
-    DocumentData,
-    ProcessingStats,
-    FileMetadata
+)
+from .schema import (
+    assign_faiss_ids,
+    chunk_ids_for_faiss_ids,
+    connect,
+    fetch_chunk_texts,
+    fetch_full_chunks,
+    init_db,
+    missing_embedding_chunk_ids,
+    upsert_chunks,
+    upsert_document,
+    upsert_embeddings,
 )
 
 __all__ = [
     # File processing
     "iter_paths",
-    "file_sha256", 
+    "file_sha256",
     "sniff_mime",
     "read_text_any",
-    
     # Text cleaning
     "normalize_text",
     "clean_whitespace",
     "remove_control_characters",
-    
     # Text chunking
     "chunk_text",
     "split_by_headings",
     "sliding_window_chunks",
-    
     # Database operations
     "connect",
     "init_db",
@@ -86,13 +70,11 @@ __all__ = [
     "missing_embedding_chunk_ids",
     "assign_faiss_ids",
     "chunk_ids_for_faiss_ids",
-    
     # Main ingestion
     "ingest_path",
-    
     # Interfaces and types
     "DocumentProcessor",
-    "TextChunker", 
+    "TextChunker",
     "TextCleaner",
     "FileIterator",
     "DatabaseManager",

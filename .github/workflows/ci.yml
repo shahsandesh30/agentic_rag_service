@@ -2,16 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ main, dev ]
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  lint-type-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -32,10 +35,45 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run pytest with coverage
-        run: pytest --cov=app --cov-report=term-missing
-
-      - name: Lint with ruff
+      - name: Lint (ruff)
         run: |
-          pip install ruff
-          ruff check app tests
+          ruff check .
+          ruff format --check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Tests (pytest + coverage)
+        run: |
+          pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=xml
+        env:
+          # Keep tests offline by default; our Step 6 stubs ensure no network calls.
+          HF_HOME: ${{ github.workspace }}/.cache/huggingface
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: ./coverage.xml
+
+  # Optional: build a Docker image only after tests pass
+  docker-build:
+    needs: lint-type-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: agentic-rag-service:ci

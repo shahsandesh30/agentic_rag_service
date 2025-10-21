@@ -1,5 +1,7 @@
 import os
+
 from app.retrieval.vector import VectorSearcher
+
 
 def test_sqlite_search(tmp_db, monkeypatch):
     monkeypatch.setenv("VECTOR_DB", "faiss")  # or sqlite, qdrant

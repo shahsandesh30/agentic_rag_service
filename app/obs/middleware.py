@@ -1,11 +1,16 @@
-import time, uuid, logging
-from typing import Callable
+import logging
+import time
+import uuid
+from collections.abc import Callable
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from .metrics import HTTP_REQUESTS, HTTP_LATENCY
+
+from .metrics import HTTP_LATENCY, HTTP_REQUESTS
 
 _log = logging.getLogger("app")
+
 
 class ObservabilityMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, exclude_paths=("/metrics",)):
@@ -25,7 +30,7 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
 
         try:
             response: Response = await call_next(request)
-        except Exception as e:
+        except Exception:
             duration = time.perf_counter() - start
             if path not in self.exclude_paths:
                 HTTP_LATENCY.labels(path=path, method=method).observe(duration)

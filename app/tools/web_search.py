@@ -1,9 +1,10 @@
 # app/tools/web_search.py
 from __future__ import annotations
-from ddgs import DDGS   # 👈 use the new package
-from typing import List, Dict
 
-def perform_web_search(query: str, num_results: int = 5) -> List[Dict]:
+from ddgs import DDGS  # 👈 use the new package
+
+
+def perform_web_search(query: str, num_results: int = 5) -> list[dict]:
     """
     Perform a web search using DuckDuckGo (ddgs).
     Returns a list of title, snippet, url.
@@ -18,8 +19,8 @@ def perform_web_search(query: str, num_results: int = 5) -> List[Dict]:
                 results.append(
                     {
                         "title": r.get("title", ""),
-                        "snippet": r.get("body", ""),   # summary/snippet
-                        "url": r.get("href", ""),       # link
+                        "snippet": r.get("body", ""),  # summary/snippet
+                        "url": r.get("href", ""),  # link
                     }
                 )
     except Exception as e:

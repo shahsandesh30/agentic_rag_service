@@ -1,24 +1,27 @@
 # app/agent/answer.py
 from __future__ import annotations
-from typing import Dict, Any, List
-from app.qa.answer import answer_question
-from app.retrieval.faiss_sqlite import FaissSqliteSearcher
+
+from typing import Any
+
 from app.llm.groq_gen import GroqGenerator
-from app.qa.prompt import make_context_blocks, make_user_prompt, SYSTEM_RULES
+from app.qa.answer import answer_question
+from app.qa.prompt import SYSTEM_RULES, make_context_blocks, make_user_prompt
+from app.retrieval.faiss_sqlite import FaissSqliteSearcher
+
 
 def answer_with_rewrites(
     question: str,
-    rewrites: List[str],
+    rewrites: list[str],
     searcher: FaissSqliteSearcher,
     generator: GroqGenerator,
     *,
     confidence_gate: float = 0.65,
     top_k_ctx: int = 8,
     mode: str = "merge",  # "multi" = current behavior, "merge" = new
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Answer a question using original + rewrites.
-    
+
     Modes:
     - multi: run retrieval + generation per rewrite, choose best answer.
     - merge: merge retrieval hits from all rewrites, one generation call.
@@ -26,7 +29,7 @@ def answer_with_rewrites(
 
     # --- Mode 1: MULTI (existing behavior) ---
     if mode == "multi":
-        attempts: List[Dict[str, Any]] = []
+        attempts: list[dict[str, Any]] = []
         best = None
         best_c = -1.0
 

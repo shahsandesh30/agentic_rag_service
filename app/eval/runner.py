@@ -1,18 +1,26 @@
 from __future__ import annotations
-import argparse, json, csv
-from typing import Dict, Any, List
+
+import argparse
+import json
+from typing import Any
 
 from app.eval.dataset import load_dataset
-from app.retrieval.vector import VectorSearcher
+from app.eval.metrics import (
+    answer_similarity,
+    citation_alignment,
+    faithfulness_proxy,
+    mrr,
+    ndcg,
+    recall_at_k,
+    retrieval_labels,
+)
+from app.llm.hf import HFGenerator
+from app.qa.answer import answer_question
 from app.retrieval.bm25 import BM25Searcher
 from app.retrieval.hybrid import HybridSearcher
 from app.retrieval.store import connect, fetch_full_chunks
-from app.qa.answer import answer_question
-from app.llm.hf import HFGenerator
-from app.eval.metrics import (
-    retrieval_labels, recall_at_k, mrr, ndcg,
-    answer_similarity, faithfulness_proxy, citation_alignment
-)
+from app.retrieval.vector import VectorSearcher
+
 
 def run_eval(
     dataset_path: str,
@@ -24,25 +32,30 @@ def run_eval(
     rrf_k: int = 60,
     rerank: bool = True,
     rerank_k: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     items = load_dataset(dataset_path)
     vs = VectorSearcher(db_path=db_path, model_name=emb_model)
     bs = BM25Searcher(db_path=db_path)
     hs = HybridSearcher(vs, bs, db_path=db_path)
     gen = HFGenerator()
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
 
     for it in items:
-        qid = it["id"]; q = it["question"]
-        gold = it.get("gold_answer","")
+        qid = it["id"]
+        q = it["question"]
+        gold = it.get("gold_answer", "")
         gold_rules = it.get("gold_citations", [])
 
         # 1) retrieval pass
         hits = hs.search(
-            q, top_k=max(top_k_ctx, 10),
-            k_vector=k_vector, k_bm25=k_bm25, rrf_k=rrf_k,
-            rerank=rerank, rerank_k=rerank_k
+            q,
+            top_k=max(top_k_ctx, 10),
+            k_vector=k_vector,
+            k_bm25=k_bm25,
+            rrf_k=rrf_k,
+            rerank=rerank,
+            rerank_k=rerank_k,
         )
         retrieved_ids = [h["chunk_id"] for h in hits]
         labels = retrieval_labels(hits, gold_rules)
@@ -54,13 +67,19 @@ def run_eval(
         conn = connect(db_path)
         full_map = fetch_full_chunks(conn, retrieved_ids[:top_k_ctx])
         conn.close()
-        ctx_texts = [full_map.get(cid,"") for cid in retrieved_ids[:top_k_ctx]]
+        ctx_texts = [full_map.get(cid, "") for cid in retrieved_ids[:top_k_ctx]]
 
         # 2) grounded answer
         payload = answer_question(
-            q, hs, gen,
-            top_k_ctx=top_k_ctx, k_vector=k_vector, k_bm25=k_bm25, rrf_k=rrf_k,
-            rerank=rerank, rerank_k=rerank_k
+            q,
+            hs,
+            gen,
+            top_k_ctx=top_k_ctx,
+            k_vector=k_vector,
+            k_bm25=k_bm25,
+            rrf_k=rrf_k,
+            rerank=rerank,
+            rerank_k=rerank_k,
         )
         ans = payload.answer
         cites = [c.dict() for c in payload.citations]
@@ -70,23 +89,25 @@ def run_eval(
         faithful = faithfulness_proxy(ans, ctx_texts, emb_model=emb_model)
         cite_align = citation_alignment(cites, retrieved_ids)
 
-        rows.append({
-            "id": qid,
-            "retrieval_recall@5": round(r_at5, 3),
-            "retrieval_recall@10": round(r_at10, 3),
-            "mrr@10": round(mrr10, 3),
-            "ndcg@10": round(ndcg10, 3),
-            "answer_sim": round(a_sim, 3),
-            "faithfulness": round(faithful, 3),
-            "citation_align": round(cite_align, 3),
-            "confidence": round(payload.confidence, 3),
-            "blocked": bool(payload.safety.blocked),
-        })
+        rows.append(
+            {
+                "id": qid,
+                "retrieval_recall@5": round(r_at5, 3),
+                "retrieval_recall@10": round(r_at10, 3),
+                "mrr@10": round(mrr10, 3),
+                "ndcg@10": round(ndcg10, 3),
+                "answer_sim": round(a_sim, 3),
+                "faithfulness": round(faithful, 3),
+                "citation_align": round(cite_align, 3),
+                "confidence": round(payload.confidence, 3),
+                "blocked": bool(payload.safety.blocked),
+            }
+        )
 
     # summary
-    def avg(key): 
-        vals = [r[key] for r in rows if isinstance(r[key], (int,float))]
-        return round(sum(vals)/max(1,len(vals)), 3)
+    def avg(key):
+        vals = [r[key] for r in rows if isinstance(r[key], (int, float))]
+        return round(sum(vals) / max(1, len(vals)), 3)
 
     summary = {
         "n": len(rows),
@@ -98,9 +119,10 @@ def run_eval(
         "faithfulness": avg("faithfulness"),
         "citation_align": avg("citation_align"),
         "confidence": avg("confidence"),
-        "blocked_rate": round(sum(1 for r in rows if r["blocked"])/max(1,len(rows)), 3),
+        "blocked_rate": round(sum(1 for r in rows if r["blocked"]) / max(1, len(rows)), 3),
     }
     return {"rows": rows, "summary": summary}
+
 
 def main():
     ap = argparse.ArgumentParser(description="Run offline RAG eval.")
@@ -135,9 +157,12 @@ def main():
     keys = list(out["rows"][0].keys()) if out["rows"] else []
     if keys:
         import csv
+
         with open(args.out_csv, "w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=keys)
-            w.writeheader(); w.writerows(out["rows"])
+            w.writeheader()
+            w.writerows(out["rows"])
+
 
 if __name__ == "__main__":
     main()

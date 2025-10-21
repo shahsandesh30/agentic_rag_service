@@ -1,13 +1,14 @@
 # app/llm/groq_gen.py
 from __future__ import annotations
+
 import os
-from typing import List
+
 from groq import Groq
+
 
 class GroqGenerator:
     """
     Groq API wrapper for text generation.
-    Drop-in replacement for HFGenerator.
     """
 
     def __init__(self, model: str | None = None, api_key: str | None = None):
@@ -20,7 +21,7 @@ class GroqGenerator:
     def generate(
         self,
         prompt: str,
-        contexts: List[str] = [],
+        contexts: list[str] = [],
         system: str = "You are a grounded QA assistant.",
         temperature: float = 0.2,
         max_tokens: int = 512,

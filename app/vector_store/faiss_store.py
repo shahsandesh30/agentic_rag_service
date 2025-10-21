@@ -1,15 +1,26 @@
 # app/vector_store/faiss_store.py
 from __future__ import annotations
-import json, os
-from typing import List, Tuple, Optional
-import numpy as np
+
+import json
+import os
+
 import faiss
+import numpy as np
+
 from .base import BaseVectorStore
+
 
 class FaissStore(BaseVectorStore):
     name = "faiss"
 
-    def __init__(self, dim: int, path: str = "faiss_index", metric: str = "cosine", hnsw_m: int = 32, ef_search: int = 64):
+    def __init__(
+        self,
+        dim: int,
+        path: str = "faiss_index",
+        metric: str = "cosine",
+        hnsw_m: int = 32,
+        ef_search: int = 64,
+    ):
         self.dim = dim
         self.metric = metric
         self.path = path
@@ -24,7 +35,7 @@ class FaissStore(BaseVectorStore):
             self.index = faiss.IndexHNSWFlat(dim, hnsw_m, faiss.METRIC_L2)
         self.index.hnsw.efSearch = ef_search
 
-        self._ids: List[str] = []
+        self._ids: list[str] = []
         self._id2row = {}
 
         if os.path.exists(self.index_path) and os.path.exists(self.ids_path):
@@ -37,7 +48,7 @@ class FaissStore(BaseVectorStore):
 
     def _load(self):
         self.index = faiss.read_index(self.index_path)
-        with open(self.ids_path, "r", encoding="utf-8") as f:
+        with open(self.ids_path, encoding="utf-8") as f:
             self._ids = json.load(f)
         self._id2row = {cid: i for i, cid in enumerate(self._ids)}
 
@@ -48,7 +59,9 @@ class FaissStore(BaseVectorStore):
         norm = np.linalg.norm(v, axis=1, keepdims=True) + 1e-12
         return (v / norm).astype(np.float32, copy=False)
 
-    def build(self, ids: List[str], vectors: np.ndarray, payloads: Optional[List[dict]] = None) -> None:
+    def build(
+        self, ids: list[str], vectors: np.ndarray, payloads: list[dict] | None = None
+    ) -> None:
         self._ids = list(ids)
         self._id2row = {cid: i for i, cid in enumerate(self._ids)}
         self.index.reset()
@@ -56,11 +69,13 @@ class FaissStore(BaseVectorStore):
         self.index.add(vecs)
         self._save()
 
-    def upsert(self, ids: List[str], vectors: np.ndarray, payloads: Optional[List[dict]] = None) -> None:
+    def upsert(
+        self, ids: list[str], vectors: np.ndarray, payloads: list[dict] | None = None
+    ) -> None:
         # simple: rebuild (FAISS HNSW doesn't support delete by id easily)
         self.build(ids, vectors, payloads)
 
-    def search(self, query_vec: np.ndarray, top_k: int = 40) -> List[Tuple[str, float]]:
+    def search(self, query_vec: np.ndarray, top_k: int = 40) -> list[tuple[str, float]]:
         q = query_vec.astype(np.float32, copy=False).reshape(1, -1)
         if self.metric == "cosine":
             q = self._ensure_norm(q)
@@ -68,12 +83,12 @@ class FaissStore(BaseVectorStore):
         idxs = I[0].tolist()
         scores = D[0].tolist()
         out = []
-        for i, s in zip(idxs, scores):
+        for i, s in zip(idxs, scores, strict=False):
             if 0 <= i < len(self._ids):
                 out.append((self._ids[i], float(s)))
         return out
 
-    def get(self, ids: List[str]) -> np.ndarray:
+    def get(self, ids: list[str]) -> np.ndarray:
         # We don't store original vectors internally → caller should still read from SQLite.
         # Return empty to signal: fetch from DB
         return np.zeros((0, self.dim), dtype=np.float32)

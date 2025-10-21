@@ -1,7 +1,12 @@
 # app/scripts/add_dataset_faiss.py
-import argparse, json, os, pathlib
-import numpy as np
+import argparse
+import json
+import os
+import pathlib
+
 import faiss
+import numpy as np
+
 from app.corpus.chunk import chunk_file
 from app.embed.model import Embedder
 
@@ -9,6 +14,7 @@ MODEL_NAME = "BAAI/bge-small-en-v1.5"
 INDEX_DIR = "faiss_index"
 INDEX_FILE = os.path.join(INDEX_DIR, "index.faiss")
 META_FILE = os.path.join(INDEX_DIR, "meta.json")
+
 
 def load_index(dim: int):
     if os.path.exists(INDEX_FILE):
@@ -24,9 +30,10 @@ def load_index(dim: int):
 
 def load_meta():
     if os.path.exists(META_FILE):
-        with open(META_FILE, "r", encoding="utf-8") as f:
+        with open(META_FILE, encoding="utf-8") as f:
             return json.load(f)
     return {}
+
 
 def save_index(index, meta):
     os.makedirs(INDEX_DIR, exist_ok=True)
@@ -34,8 +41,11 @@ def save_index(index, meta):
     with open(META_FILE, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
+
 def main():
-    ap = argparse.ArgumentParser(description="Add dataset(s) directly into FAISS index (no SQLite).")
+    ap = argparse.ArgumentParser(
+        description="Add dataset(s) directly into FAISS index (no SQLite)."
+    )
     ap.add_argument("paths", nargs="+", help="Files or directories to ingest")
     args = ap.parse_args()
 
@@ -71,7 +81,7 @@ def main():
         ids = list(range(start_id, start_id + len(docs)))
         index.add_with_ids(vecs.astype("float32"), np.array(ids))
 
-        for i, d in zip(ids, docs):
+        for i, d in zip(ids, docs, strict=False):
             meta[i] = {
                 "text": d["text"],
                 "path": d["path"],
@@ -85,6 +95,7 @@ def main():
 
     save_index(index, meta)
     print(f"✅ Added {total_chunks} new chunks. FAISS index updated at {INDEX_FILE}")
+
 
 if __name__ == "__main__":
     main()

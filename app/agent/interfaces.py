@@ -9,21 +9,24 @@ This module defines the core interfaces for the agent system including:
 - Safety checking
 - State management
 """
+
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Literal, Protocol
 from dataclasses import dataclass
+from typing import Any, Literal, Protocol
 
 # Type aliases for better code clarity
 Intent = Literal["rag", "web", "chitchat"]
-AnswerPayload = Dict[str, Any]
-TraceEntry = Dict[str, Any]
-WebResult = Dict[str, Any]
+AnswerPayload = dict[str, Any]
+TraceEntry = dict[str, Any]
+WebResult = dict[str, Any]
 
 
 @dataclass
 class AgentConfig:
     """Configuration for agent components."""
+
     max_rewrites: int = 3
     confidence_gate: float = 0.65
     top_k_context: int = 8
@@ -37,15 +40,15 @@ class AgentConfig:
 
 class IntentClassifier(ABC):
     """Abstract base class for intent classification."""
-    
+
     @abstractmethod
     def classify(self, question: str) -> Intent:
         """
         Classify the intent of a user question.
-        
+
         Args:
             question: User question to classify
-            
+
         Returns:
             Classified intent
         """
@@ -54,16 +57,16 @@ class IntentClassifier(ABC):
 
 class QuestionRewriter(ABC):
     """Abstract base class for question rewriting."""
-    
+
     @abstractmethod
-    def rewrite(self, question: str, max_rewrites: int = 3) -> List[str]:
+    def rewrite(self, question: str, max_rewrites: int = 3) -> list[str]:
         """
         Generate alternative rewrites of a question.
-        
+
         Args:
             question: Original question
             max_rewrites: Maximum number of rewrites to generate
-            
+
         Returns:
             List of rewritten questions
         """
@@ -72,22 +75,19 @@ class QuestionRewriter(ABC):
 
 class AnswerGenerator(ABC):
     """Abstract base class for answer generation."""
-    
+
     @abstractmethod
     def generate_answer(
-        self, 
-        question: str, 
-        context: List[Dict[str, Any]], 
-        mode: str = "merge"
+        self, question: str, context: list[dict[str, Any]], mode: str = "merge"
     ) -> AnswerPayload:
         """
         Generate an answer for a question.
-        
+
         Args:
             question: User question
             context: Retrieved context
             mode: Generation mode
-            
+
         Returns:
             Answer payload with metadata
         """
@@ -96,15 +96,15 @@ class AnswerGenerator(ABC):
 
 class SafetyChecker(ABC):
     """Abstract base class for safety checking."""
-    
+
     @abstractmethod
     def check_safety(self, payload: AnswerPayload) -> AnswerPayload:
         """
         Check answer payload for safety issues.
-        
+
         Args:
             payload: Answer payload to check
-            
+
         Returns:
             Modified payload with safety information
         """
@@ -113,16 +113,16 @@ class SafetyChecker(ABC):
 
 class WebSearcher(ABC):
     """Abstract base class for web search."""
-    
+
     @abstractmethod
-    def search(self, query: str, num_results: int = 3) -> List[WebResult]:
+    def search(self, query: str, num_results: int = 3) -> list[WebResult]:
         """
         Perform web search for a query.
-        
+
         Args:
             query: Search query
             num_results: Number of results to return
-            
+
         Returns:
             List of web search results
         """
@@ -131,27 +131,27 @@ class WebSearcher(ABC):
 
 class AgentState(Protocol):
     """Protocol for agent state management."""
-    
+
     question: str
-    intent: Optional[Intent]
-    rewrites: List[str]
-    answers: List[AnswerPayload]
-    best: Optional[AnswerPayload]
-    trace: List[TraceEntry]
-    web_results: Optional[List[WebResult]]
+    intent: Intent | None
+    rewrites: list[str]
+    answers: list[AnswerPayload]
+    best: AnswerPayload | None
+    trace: list[TraceEntry]
+    web_results: list[WebResult] | None
 
 
 class AgentNode(ABC):
     """Abstract base class for agent graph nodes."""
-    
+
     @abstractmethod
     def execute(self, state: AgentState) -> AgentState:
         """
         Execute the node logic.
-        
+
         Args:
             state: Current agent state
-            
+
         Returns:
             Updated agent state
         """
@@ -160,15 +160,15 @@ class AgentNode(ABC):
 
 class AgentGraph(ABC):
     """Abstract base class for agent graph execution."""
-    
+
     @abstractmethod
-    def run(self, question: str) -> Dict[str, Any]:
+    def run(self, question: str) -> dict[str, Any]:
         """
         Run the agent graph with a question.
-        
+
         Args:
             question: User question
-            
+
         Returns:
             Final result with trace information
         """

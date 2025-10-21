@@ -14,30 +14,22 @@ Main components:
 """
 
 from .faiss_sqlite import FaissSqliteSearcher
+from .interfaces import BaseSearcher, RerankerProtocol, SearchResult
 from .rerank import Reranker
-from .store import (
-    connect,
-    load_embeddings,
-    fetch_chunk_texts,
-    load_all_chunks,
-    fetch_full_chunks
-)
-from .interfaces import BaseSearcher, SearchResult, RerankerProtocol
+from .store import connect, fetch_chunk_texts, fetch_full_chunks, load_all_chunks, load_embeddings
 
 __all__ = [
     # Main searcher classes
     "FaissSqliteSearcher",
     "Reranker",
-    
     # Database utilities
     "connect",
-    "load_embeddings", 
+    "load_embeddings",
     "fetch_chunk_texts",
     "load_all_chunks",
     "fetch_full_chunks",
-    
     # Interfaces and types
     "BaseSearcher",
-    "SearchResult", 
+    "SearchResult",
     "RerankerProtocol",
 ]

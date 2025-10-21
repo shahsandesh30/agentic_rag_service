@@ -1,6 +1,8 @@
 # app/embed/compute_cli.py
 import argparse
+
 from .compute import compute_embeddings
+
 
 def main():
     p = argparse.ArgumentParser(description="Compute embeddings for chunks and store in SQLite.")
@@ -17,6 +19,7 @@ def main():
         limit_per_pass=args.limit_per_pass,
     )
     print(f"Embedded {stats['embedded']} chunks with {stats['model']} -> {stats['db']}")
+
 
 if __name__ == "__main__":
     main()

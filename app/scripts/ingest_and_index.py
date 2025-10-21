@@ -1,18 +1,21 @@
 # app/scripts/ingest_and_index.py
-import os
-import numpy as np
 import json
+import os
+
 import faiss
+import numpy as np
 from tqdm import tqdm
 
-from app.embed.model import Embedder
 from app.corpus.ingest import ingest_path
 from app.corpus.schema import (
-    connect, init_db,
-    fetch_full_chunks, missing_embedding_chunk_ids,
     assign_faiss_ids,
-    upsert_embeddings
+    connect,
+    fetch_full_chunks,
+    init_db,
+    missing_embedding_chunk_ids,
+    upsert_embeddings,
 )
+from app.embed.model import Embedder
 
 FAISS_PATH = "faiss_index/index.faiss"
 DB_PATH = "rag_local.db"
@@ -38,12 +41,13 @@ def ensure_faiss_index(dim: int, metric: str = "cosine") -> faiss.Index:
     return faiss.IndexIDMap(base_index)
 
 
-
 def main():
     # --- Step 1. Ingest corpus into SQLite ---
     print("[STEP 1] Ingesting documents...")
     stats = ingest_path("data", db_path=DB_PATH)
-    print(f"[INFO] Ingested {stats['documents']} documents, {stats['chunks']} chunks into {DB_PATH}")
+    print(
+        f"[INFO] Ingested {stats['documents']} documents, {stats['chunks']} chunks into {DB_PATH}"
+    )
 
     # --- Step 2. Init embedder ---
     print("[STEP 2] Loading embedder...")
@@ -70,7 +74,7 @@ def main():
     all_ids, all_vecs = [], []
 
     for i in tqdm(range(0, len(todo), batch_size), desc="Embedding chunks"):
-        batch = todo[i:i + batch_size]
+        batch = todo[i : i + batch_size]
         chunk_ids = [cid for cid, _ in batch]
         texts = fetch_full_chunks(conn, chunk_ids)
         vecs = embedder.encode([texts[cid] for cid in chunk_ids])
@@ -92,23 +96,25 @@ def main():
 
     # --- Step 7. Save FAISS index ---
     faiss.write_index(index, FAISS_PATH)
-    meta = {
-        "model": MODEL_NAME,
-        "dim": dim,
-        "index_type": "IndexIDMap(FlatIP)",
-        "metric": "cosine"
-    }
+    meta = {"model": MODEL_NAME, "dim": dim, "index_type": "IndexIDMap(FlatIP)", "metric": "cosine"}
     with open("faiss_index/meta.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
     print(f"[INFO] Saved FAISS index at {FAISS_PATH}")
 
     # --- Step 8. Record mapping in SQLite ---
-    assign_faiss_ids(conn, [(cid, fid, dim, MODEL_NAME) for cid, fid in zip(all_ids, faiss_ids)])
-    upsert_embeddings(conn, [(cid, MODEL_NAME, dim, vec.tobytes(), fid)
-        for cid, vec, fid in zip(all_ids, all_vecs, faiss_ids)])
+    assign_faiss_ids(
+        conn, [(cid, fid, dim, MODEL_NAME) for cid, fid in zip(all_ids, faiss_ids, strict=False)]
+    )
+    upsert_embeddings(
+        conn,
+        [
+            (cid, MODEL_NAME, dim, vec.tobytes(), fid)
+            for cid, vec, fid in zip(all_ids, all_vecs, faiss_ids, strict=False)
+        ],
+    )
 
     with open("faiss_index/ids.json", "w", encoding="utf-8") as f:
-        json.dump({cid: fid for cid, fid, *_ in zip(all_ids, faiss_ids)}, f, indent=2)
+        json.dump({cid: fid for cid, fid, *_ in zip(all_ids, faiss_ids, strict=False)}, f, indent=2)
     conn.commit()
     conn.close()
 

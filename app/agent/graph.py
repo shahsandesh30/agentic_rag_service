@@ -1,22 +1,21 @@
 # app/agent/graph.py
 from __future__ import annotations
-from typing import Dict, Any
-from langgraph.graph import StateGraph, END
-
-from app.agent.types import AgentState
-from app.agent.router import route
-from app.agent.researcher import make_rewrites
-from app.agent.answer import answer_with_rewrites
-from app.agent.compliance import check
-
-from app.retrieval.faiss_sqlite import FaissSqliteSearcher
-from app.embed.model import Embedder
-from app.llm.groq_gen import GroqGenerator
-
-from app.tools.web_search import perform_web_search
 
 import os
+from typing import Any
+
 from dotenv import load_dotenv
+from langgraph.graph import END, StateGraph
+
+from app.agent.answer import answer_with_rewrites
+from app.agent.compliance import check
+from app.agent.researcher import make_rewrites
+from app.agent.router import classify_intent
+from app.agent.types import AgentState
+from app.embed.model import Embedder
+from app.llm.groq_gen import GroqGenerator
+from app.retrieval.faiss_sqlite import FaissSqliteSearcher
+from app.tools.web_search import perform_web_search
 
 # --- Init shared components ---
 load_dotenv()
@@ -27,12 +26,28 @@ _SEARCHER = FaissSqliteSearcher(embedder)
 llm_api_key = os.getenv("GROQ_API_KEY")
 _GEN = GroqGenerator(model="llama-3.1-8b-instant", api_key=llm_api_key)
 
+
 # --- Nodes ---
-def node_router(state: AgentState) -> AgentState:
-    intent = route(state["question"], allow_llm_fallback=False, generator=_GEN)
-    state["intent"] = intent
-    state.setdefault("trace", []).append({"node": "router", "intent": intent})
+def node_router(state: dict) -> dict:
+    q = state.get("question", "") or state.get("user_input", "")
+    intent = classify_intent(q)
+
+    label = intent["label"]
+    if label == "web":
+        state["route"] = "web_search"
+    elif label == "chitchat":
+        state["route"] = "chitchat"
+    else:
+        state["route"] = "rag"
+
+    state["intent"] = label
+    state["trace"] = [{"node": "router", "intent": label}]
+    # previous node_router method output: {'question': 'Hi', 'intent': 'chitchat', 'trace': [{'node': 'router', 'intent': 'chitchat'}]}
+    # {'question': 'Hi', 'intent': {'label': 'chitchat', 'confidence': 0.5, 'reasons': 'very short query → chitchat default'}, 'route': 'chitchat'}
+    print("node stateeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+    print(state)
     return state
+
 
 def node_research(state: AgentState) -> AgentState:
     if state.get("intent") != "rag":
@@ -44,6 +59,7 @@ def node_research(state: AgentState) -> AgentState:
     state.setdefault("trace", []).append({"node": "researcher", "rewrites": rw})
     return state
 
+
 def node_answer(state: AgentState) -> AgentState:
     if state.get("intent") == "chitchat":
         # direct LLM, no context
@@ -51,15 +67,14 @@ def node_answer(state: AgentState) -> AgentState:
             prompt=state["question"],
             contexts=[],
             system=(
-                "Casual assistant. Be brief. "
-                "If user asks for private or dangerous info, decline."
+                "Casual assistant. Be brief. If user asks for private or dangerous info, decline."
             ),
         )
         payload = {
             "answer": out.strip(),
             "citations": [],
             "confidence": 0.5,
-            "safety": {"blocked": False}
+            "safety": {"blocked": False},
         }
         state["best"] = payload
         state.setdefault("trace", []).append({"node": "answerer", "mode": "chitchat"})
@@ -73,7 +88,7 @@ def node_answer(state: AgentState) -> AgentState:
             generator=_GEN,
             top_k_ctx=8,
             confidence_gate=0.65,
-            mode="merge"
+            mode="merge",
         )
 
         # Apply strict SYSTEM_RULES here
@@ -83,7 +98,7 @@ def node_answer(state: AgentState) -> AgentState:
                 "answer": "I don’t know based on the supplied context.",
                 "citations": [],
                 "confidence": 0.0,
-                "safety": {"blocked": False}
+                "safety": {"blocked": False},
             }
 
         state["answers"] = bundle["answers"]
@@ -91,21 +106,25 @@ def node_answer(state: AgentState) -> AgentState:
 
         return state
 
+
 def node_compliance(state: AgentState) -> AgentState:
     state["best"] = check(state["best"])
-    state.setdefault("trace", []).append({"node": "compliance", "blocked": state["best"]["safety"]["blocked"]})
+    state.setdefault("trace", []).append(
+        {"node": "compliance", "blocked": state["best"]["safety"]["blocked"]}
+    )
     return state
+
 
 def node_web_search(state: AgentState) -> AgentState:
     q = state["question"]
 
     results = perform_web_search(q, num_results=3)
-    if not results:  # 
+    if not results:  #
         state["best"] = {
             "answer": f"Sorry, I couldn’t find any web results for '{q}'.",
             "citations": [],
             "confidence": 0.0,
-            "safety": {"blocked": False}
+            "safety": {"blocked": False},
         }
         state.setdefault("trace", []).append({"node": "web_search", "results": 0})
         return state
@@ -115,7 +134,7 @@ def node_web_search(state: AgentState) -> AgentState:
     summary = _GEN.generate(
         prompt=f"Summarize the key points from these results about '{q}'.",
         contexts=[ctx],
-        system="Factual assistant. Stay grounded in provided snippets. Include URLs."
+        system="Factual assistant. Stay grounded in provided snippets. Include URLs.",
     )
 
     state["web_results"] = results
@@ -123,16 +142,20 @@ def node_web_search(state: AgentState) -> AgentState:
         "answer": summary.strip(),
         "citations": [r["url"] for r in results if r.get("url")],
         "confidence": 0.7,
-        "safety": {"blocked": False}
+        "safety": {"blocked": False},
     }
 
     state.setdefault("trace", []).append({"node": "web_search", "results": len(results)})
     return state
 
+
 # --- Build the graph ---
 def build_graph():
+    print("buildddddddddddddddddddddddddddddddd")
     g = StateGraph(AgentState)
+    print("stateeeeeeeeeeeeeeeeeeee")
     g.add_node("router", node_router)
+    print("nodeeeeeeeeeeeeeeeeeeeeeeeeeeee")
     g.add_node("researcher", node_research)
     g.add_node("answerer", node_answer)
     g.add_node("compliance", node_compliance)
@@ -147,8 +170,8 @@ def build_graph():
         {
             "rag": "researcher",
             "chitchat": "answerer",  # skip researcher + retrieval
-            "web": "web_search",     # if you add a "web" intent
-        }
+            "web": "web_search",  # if you add a "web" intent
+        },
     )
 
     g.add_edge("researcher", "answerer")
@@ -160,8 +183,10 @@ def build_graph():
 
 
 # --- Runner ---
-def run_agent(question: str) -> Dict[str, Any]:
+def run_agent(question: str) -> dict[str, Any]:
     app = build_graph()
     state: AgentState = {"question": question}
+    print("-stateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+    print(state)
     final = app.invoke(state)
     return {"final": final.get("best"), "trace": final.get("trace", [])}

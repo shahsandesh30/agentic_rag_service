@@ -1,12 +1,13 @@
 # app/embed/compute.py
 from __future__ import annotations
-import sqlite3, math
-from typing import List, Tuple
+
 import numpy as np
 
 from app.corpus.schema import connect, init_db
-from .store import init_embedding_table, fetch_chunks_to_embed, upsert_embeddings, sha256_text
+
 from .model import Embedder
+from .store import fetch_chunks_to_embed, init_embedding_table, sha256_text, upsert_embeddings
+
 
 def compute_embeddings(
     db_path: str = "rag_local.db",
@@ -23,17 +24,17 @@ def compute_embeddings(
 
     while True:
         todo = fetch_chunks_to_embed(conn, model=model_name, limit=limit_per_pass)
-        print("todo______",todo)
+        print("todo______", todo)
         if not todo:
             break
-        
-        print("todo______",todo)
+
+        print("todo______", todo)
         # batch over 'todo'
         for i in range(0, len(todo), batch_size):
-            batch_ids, batch_texts = zip(*todo[i:i+batch_size])
+            batch_ids, batch_texts = zip(*todo[i : i + batch_size], strict=False)
             vecs: np.ndarray = emb.encode(list(batch_texts), batch_size=batch_size)
             rows = []
-            for cid, text, vec in zip(batch_ids, batch_texts, vecs):
+            for cid, text, vec in zip(batch_ids, batch_texts, vecs, strict=False):
                 rows.append((cid, vec, sha256_text(text)))
             upsert_embeddings(conn, model=model_name, dim=emb.dim, batch=rows)
             conn.commit()

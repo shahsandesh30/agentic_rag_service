@@ -19,73 +19,53 @@ Main components:
 - CLI: Command-line interface for agent interaction
 """
 
-from .router import (
-    route,
-    RegexIntentClassifier,
-    LLMIntentClassifier
-)
-from .researcher import (
-    make_rewrites,
-    LLMQuestionRewriter,
-    SemanticQuestionRewriter
-)
 from .answer import answer_with_rewrites
-from .compliance import (
-    check,
-    RegexSafetyChecker,
-    AdvancedSafetyChecker
-)
-from .graph import (
-    build_graph,
-    run_agent
-)
-from .types import (
-    Intent,
-    AnswerMode,
-    SafetyLevel,
-    ProcessingStatus,
-    Citation,
-    SafetyInfo,
-    AnswerPayload,
-    TraceEntry,
-    AgentState,
-    AgentMetrics,
-    AgentConfig
-)
+from .compliance import AdvancedSafetyChecker, RegexSafetyChecker, check
+from .graph import build_graph, run_agent
 from .interfaces import (
+    AgentGraph,
+    AgentNode,
+    AnswerGenerator,
     IntentClassifier,
     QuestionRewriter,
-    AnswerGenerator,
     SafetyChecker,
     WebSearcher,
-    AgentNode,
-    AgentGraph
+)
+from .researcher import LLMQuestionRewriter, SemanticQuestionRewriter, make_rewrites
+from .router import classify_intent
+from .types import (
+    AgentConfig,
+    AgentMetrics,
+    AgentState,
+    AnswerMode,
+    AnswerPayload,
+    Citation,
+    Intent,
+    ProcessingStatus,
+    SafetyInfo,
+    SafetyLevel,
+    TraceEntry,
 )
 
 __all__ = [
     # Main functions
-    "route",
-    "make_rewrites", 
+    "router",
+    "make_rewrites",
     "answer_with_rewrites",
     "check",
     "build_graph",
     "run_agent",
-    
     # Classifiers
-    "RegexIntentClassifier",
-    "LLMIntentClassifier",
-    
+    "classify_intent",
     # Rewriters
     "LLMQuestionRewriter",
     "SemanticQuestionRewriter",
-    
     # Safety checkers
     "RegexSafetyChecker",
     "AdvancedSafetyChecker",
-    
     # Types and enums
     "Intent",
-    "AnswerMode", 
+    "AnswerMode",
     "SafetyLevel",
     "ProcessingStatus",
     "Citation",
@@ -95,11 +75,10 @@ __all__ = [
     "AgentState",
     "AgentMetrics",
     "AgentConfig",
-    
     # Interfaces
     "IntentClassifier",
     "QuestionRewriter",
-    "AnswerGenerator", 
+    "AnswerGenerator",
     "SafetyChecker",
     "WebSearcher",
     "AgentNode",
