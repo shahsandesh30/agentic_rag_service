@@ -1,7 +1,8 @@
 # app/qa/answer.py
 from __future__ import annotations
-from typing import List, Dict
+from typing import List, Dict, Any
 import time
+import json
 
 from app.llm.groq_gen import GroqGenerator  # using Groq now
 from app.qa.prompt import SYSTEM_RULES, make_context_blocks, make_user_prompt
@@ -35,8 +36,8 @@ def _confidence_from_hits(hits: List[Dict]) -> float:
     return max(0.35, min(0.90, 0.35 + 0.55 * raw))
 
 
-def _default_citations(hits: List[Dict], limit: int = 5) -> List[Dict]:
-    cites: List[Dict] = []
+def _default_citations(hits: List[Dict], limit: int = 5) -> List[Dict[str, Any]]:
+    cites: List[Dict[str, Any]] = []
     for h in hits[:limit]:
         cites.append({
             "source": h.get("source"),
@@ -44,6 +45,61 @@ def _default_citations(hits: List[Dict], limit: int = 5) -> List[Dict]:
             "section": h.get("section"),
         })
     return cites
+
+
+def _parse_model_json(text: str) -> Dict[str, Any]:
+    if not text or not text.strip():
+        return {}
+    try:
+        data = json.loads(text)
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _extract_answer(model_payload: Dict[str, Any], fallback: str) -> str:
+    answer = model_payload.get("answer")
+    if isinstance(answer, str) and answer.strip():
+        return answer.strip()
+    return fallback.strip() if isinstance(fallback, str) else str(fallback)
+
+
+def _extract_citations(model_payload: Dict[str, Any], hits: List[Dict], *, limit: int) -> List[Dict[str, Any]]:
+    raw = model_payload.get("citations")
+    cites: List[Dict[str, Any]] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict):
+                cites.append({
+                    "source": item.get("source"),
+                    "path": item.get("path"),
+                    "section": item.get("section"),
+                })
+    return cites or _default_citations(hits, limit=limit)
+
+
+def _extract_confidence(model_payload: Dict[str, Any], hits: List[Dict]) -> float:
+    value = model_payload.get("confidence")
+    if isinstance(value, (int, float)):
+        try:
+            clamped = float(value)
+        except (TypeError, ValueError):
+            clamped = None
+        else:
+            if 0.0 <= clamped <= 1.0:
+                return clamped
+    return _confidence_from_hits(hits)
+
+
+def _extract_safety(model_payload: Dict[str, Any], *, base: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    safety: Dict[str, Any] = {"blocked": False}
+    if isinstance(base, dict):
+        safety.update(base)
+    raw = model_payload.get("safety")
+    if isinstance(raw, dict):
+        safety.update(raw)
+    safety["blocked"] = bool(safety.get("blocked", False))
+    return safety
 
 
 def answer_question(
@@ -125,18 +181,22 @@ def answer_question(
             safety={"blocked": True, **info2},
         )
 
-    citations = _default_citations(hits, limit=min(5, top_k_ctx))
-    confidence = _confidence_from_hits(hits)
+    model_payload = _parse_model_json(final_text if isinstance(final_text, str) else "")
+
+    answer_text = _extract_answer(model_payload, final_text)
+    citations = _extract_citations(model_payload, hits, limit=min(5, top_k_ctx))
+    confidence = _extract_confidence(model_payload, hits)
+    safety_payload = _extract_safety(model_payload, base=info2)
 
     try:
-        out_tokens = len(generator.tokenizer(final_text).input_ids)
+        out_tokens = len(generator.tokenizer(answer_text).input_ids)
         TOKENS_OUTPUT.inc(out_tokens)
     except Exception:
         pass
 
     return AnswerPayload(
-        answer=final_text.strip() if isinstance(final_text, str) else str(final_text),
+        answer=answer_text,
         citations=citations,
         confidence=confidence,
-        safety={"blocked": False},
+        safety=safety_payload,
     )

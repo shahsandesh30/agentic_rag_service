@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
-import json
 
 from app.llm.groq_gen import GroqGenerator
 from app.retrieval.faiss_sqlite import FaissSqliteSearcher
@@ -37,6 +36,24 @@ app.add_middleware(ObservabilityMiddleware)
 app.mount("/metrics", make_asgi_app())
 
 load_dotenv()
+
+
+def _session_key(session_id: str, prefix: str = "") -> str:
+    """Consistently build a memory session key with an optional prefix."""
+    return f"{prefix}{session_id}" if prefix else session_id
+
+
+def _build_enriched_prompt(session_id: str, question: str, *, history_limit: int = 5) -> str:
+    """Return the user question enriched with recent chat history if available."""
+    history = get_recent_messages(session_id, limit=history_limit)
+    history_text = "\n".join([f"{m['role']}: {m['content']}" for m in history])
+    return f"{history_text}\nUser: {question}" if history_text else question
+
+
+def _record_exchange(session_id: str, question: str, answer: str) -> None:
+    """Persist the latest user and assistant messages to memory."""
+    save_message(session_id, "user", question)
+    save_message(session_id, "assistant", answer)
 
 # --- Components ---
 embedder = Embedder(model_name="BAAI/bge-small-en-v1.5")
@@ -83,12 +100,8 @@ def search(req: SearchReq):
 
 @app.post("/ask")
 def ask(req: AskReq):
-    # --- Fetch conversation history ---
-    history = get_recent_messages(req.session_id, limit=5)
-    history_text = "\n".join([f"{m['role']}: {m['content']}" for m in history])
-
-    # --- Combine history + new question ---
-    user_input = f"{history_text}\nUser: {req.question}" if history_text else req.question
+    session_id = _session_key(req.session_id)
+    user_input = _build_enriched_prompt(session_id, req.question)
 
     # --- Run RAG QA ---
     payload = answer_question(
@@ -99,30 +112,31 @@ def ask(req: AskReq):
     )
 
     # --- Save both Q and A to memory ---
-    save_message(req.session_id, "user", req.question)
-    save_message(req.session_id, "assistant", payload.answer)
+    _record_exchange(session_id, req.question, payload.answer)
 
-    answer_dict = json.loads(payload.dict()['answer'])
-
-    return answer_dict["answer"]
-    # return payload.dict()
+    return payload.dict()
     
 
 @app.post("/agent/ask")
 def agent_ask(req: AgentAskReq):
-    # --- Fetch conversation history ---
-    history = get_recent_messages("agent_" + req.session_id, limit=5)
-    history_text = "\n".join([f"{m['role']}: {m['content']}" for m in history])
-
-    # --- Combine history + new question ---
-    enriched_q = f"{history_text}\nUser: {req.question}" if history_text else req.question
+    session_id = _session_key(req.session_id, prefix="agent_")
+    enriched_q = _build_enriched_prompt(session_id, req.question)
 
     # --- Run agent ---
     out = run_agent(enriched_q)
 
-    # --- Save memory ---
-    save_message("agent_" + req.session_id, "user", req.question)
-    save_message("agent_" + req.session_id, "assistant", out["final"]["answer"])
+    final_section = out.get("final") if isinstance(out, dict) else {}
+    final_answer = ""
+    if isinstance(final_section, dict):
+        ans = final_section.get("answer")
+        if isinstance(ans, str):
+            final_answer = ans
 
-    return out if req.trace else out["final"]
+    # --- Save memory ---
+    _record_exchange(session_id, req.question, final_answer)
+
+    if req.trace:
+        return out
+
+    return final_section or {"answer": final_answer}
 
